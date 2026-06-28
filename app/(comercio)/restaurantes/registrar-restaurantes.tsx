@@ -8,18 +8,23 @@ import {
   View,
   Image,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 import { API_URL } from '@/constants';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker';
+
+import ThemePicker from '@/components/ThemePicker';
 import { Estado } from '@/type';
 import { router, useLocalSearchParams } from 'expo-router';
 import TimePickerInput from '@/components/TimePickerInput';
 import * as ImagePicker from 'expo-image-picker';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import CountryPicker from 'react-native-country-picker-modal';
+import CountryPicker, { DARK_THEME } from 'react-native-country-picker-modal';
+import ScreenWrapper from '@/components/ui/ScreenWrapper';
+import Card from '@/components/ui/Card';
+import Header from '@/components/ui/Header';
 
 interface Categoria {
   id: string;
@@ -28,7 +33,8 @@ interface Categoria {
 
 export default function RegistrarRestaurante() {
   const token = useAuthStore((state) => state.user?.token);
-  const user = useAuthStore((state) => state.user); // Usuario actual
+  const { darkMode } = useThemeStore();
+  const user = useAuthStore((state) => state.user);
   const params = useLocalSearchParams<{ latitud?: string; longitud?: string }>();
 
   const [restauranteId, setRestauranteId] = useState<string | null>(null);
@@ -47,16 +53,13 @@ export default function RegistrarRestaurante() {
   const [categoriasDisponibles, setCategoriasDisponibles] = useState<Categoria[]>([]);
 
   const [telefono, setTelefono] = useState(
-    user?.telefono ? user.telefono.replace(/^\+\d{1,3}/, '') : ''
+    user?.telefono ? user.telefono.replace(/^\+/, '').slice(-10) : ''
   );
-  const [paginaWeb, setPaginaWeb] = useState('');
-  const [capacidad, setCapacidad] = useState('');
 
   const [imagen, setImagen] = useState<ImagePickerAsset | null>(null);
 
-  // Country picker
   const [country, setCountry] = useState({
-    cca2: 'VE', // 🇻🇪 Venezuela
+    cca2: 'VE',
     callingCode: ['58'],
   });
   const [visible, setVisible] = useState(false);
@@ -65,7 +68,6 @@ export default function RegistrarRestaurante() {
     setCountry(countrySelected);
   };
 
-  // Pick image
   const pickImage = async (
     setter: React.Dispatch<React.SetStateAction<ImagePickerAsset | null>>
   ) => {
@@ -80,7 +82,6 @@ export default function RegistrarRestaurante() {
     }
   };
 
-  // Fetch restaurante existente
   const fetchRestaurante = async () => {
     try {
       const res = await axios.get(
@@ -100,11 +101,9 @@ export default function RegistrarRestaurante() {
         setHoraApertura(r.horario_apertura || '');
         setHoraCierre(r.horario_cierre || '');
         setCategoria(r.categoria.id || '');
-        setTelefono(r.telefono ? r.telefono.replace(/^\+\d{1,3}/, '') : '');
-        setPaginaWeb(r.pagina_web || '');
-        setCapacidad(String(r.capacidad || ''));
+        setTelefono(r.telefono ? r.telefono.replace(/^\+/, '').slice(-10) : '');
 
-        if (r.imagen) {
+        if (r.imagen || r.imagen_url) {
           setImagen({
             uri: r.imagen_url,
             width: 0,
@@ -119,7 +118,6 @@ export default function RegistrarRestaurante() {
     }
   };
 
-  // Fetch listas
   const fetchEstados = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/restaurantes/estados/`, {
@@ -142,7 +140,6 @@ export default function RegistrarRestaurante() {
     }
   };
 
-  // Convertir hora a 24h
   const convertirHora24 = (hora: string) => {
     if (!hora) return "";
     const pm = hora.toLowerCase().includes("pm");
@@ -156,9 +153,18 @@ export default function RegistrarRestaurante() {
   };
 
   const handleGuardar = async () => {
-    // Validar teléfono
-    if (telefono.length !== 10) {
-      Alert.alert('Número inválido', 'El número de teléfono debe tener exactamente 10 dígitos');
+    const faltantes: string[] = [];
+    if (!nombre.trim()) faltantes.push('Nombre');
+    if (!descripcion.trim()) faltantes.push('Descripción');
+    if (!direccion.trim()) faltantes.push('Dirección');
+    if (!latitud || !longitud) faltantes.push('Ubicación en el mapa');
+    if (!horaApertura) faltantes.push('Hora de apertura');
+    if (!horaCierre) faltantes.push('Hora de cierre');
+    if (!estado) faltantes.push('Estado');
+    if (!categoria) faltantes.push('Categoría');
+    if (telefono.length !== 10) faltantes.push('Teléfono (10 dígitos)');
+    if (faltantes.length > 0) {
+      Alert.alert('Campos requeridos', `Completa los siguientes campos:\n• ${faltantes.join('\n• ')}`);
       return;
     }
 
@@ -171,13 +177,10 @@ export default function RegistrarRestaurante() {
     formData.append('horario_apertura', convertirHora24(horaApertura));
     formData.append('horario_cierre', convertirHora24(horaCierre));
     formData.append('estado', estado);
-
-    if (categoria) formData.append('categoria_id', categoria);
+    formData.append('categoria_id', categoria);
 
     const fullPhone = `+${country.callingCode[0]}${telefono}`;
     formData.append('telefono', fullPhone);
-    formData.append('pagina_web', paginaWeb);
-    formData.append('capacidad', capacidad);
 
     if (imagen) {
       formData.append('imagen', {
@@ -226,147 +229,170 @@ export default function RegistrarRestaurante() {
   }, [params]);
 
   return (
-    <SafeAreaView className="flex-1 bg-white px-5">
-      <View className="flex-row items-center px-4 py-3 bg-white justify-between">
-        <TouchableOpacity onPress={() => router.replace('/(comercio)/perfil')} className="flex-row items-center">
-          <Ionicons name="arrow-back" size={22} color="#003399" />
-          <Text className="text-xl font-bold text-primary ml-2">Atrás</Text>
-        </TouchableOpacity>
+    <ScreenWrapper gradient>
+      <Header title={restauranteId ? "Editar Restaurante" : "Registrar Restaurante"} showBack backHref="/(comercio)" gradient />
 
-        <TouchableOpacity onPress={() => router.push("/profile")}>
-          <Ionicons name="notifications" size={32} color="#FF6600" />
-        </TouchableOpacity>
-      </View>
+      <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 120 }} overScrollMode="never">
+        {imagen && (
+          <Animated.View entering={FadeInDown.delay(100).duration(400)} className="items-center mt-2">
+            <Image className="w-28 h-28 rounded-3xl" source={{ uri: imagen.uri }} />
+          </Animated.View>
+        )}
 
-      <ScrollView className="flex-1 px-4 mb-28 pb-32">
-        {imagen && <Image className='w-32 h-32 rounded-full self-center' source={{ uri: imagen.uri }} />}
-        <TouchableOpacity
-          className="bg-gray-200 rounded-lg px-4 py-2 mb-2 self-center flex-row gap-2 items-center"
-          onPress={() => pickImage(setImagen)}
-        >
-          <FontAwesome name="camera" size={18} color="black" />
-          <Text className='text-lg font-semibold'>{imagen ? 'Cambiar Imagen' : 'Seleccionar Imagen'}</Text>
-        </TouchableOpacity>
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} className="items-center mt-3 mb-4">
+          <TouchableOpacity
+            className="bg-primary/10 rounded-2xl px-5 py-2.5 flex-row items-center gap-2"
+            onPress={() => pickImage(setImagen)}
+          >
+            <FontAwesome name="camera" size={16} color="#2563EB" />
+            <Text className="text-primary font-semibold">{imagen ? 'Cambiar Imagen' : 'Seleccionar Imagen'}</Text>
+          </TouchableOpacity>
+        </Animated.View>
 
-        {/* Nombre */}
-        <Text className="font-bold mb-1 mt-4">Nombre del Restaurante</Text>
-        <TextInput
-          className="bg-gray-200 rounded-lg px-4 py-3 mb-4 text-gray-800 font-semibold"
-          value={nombre}
-          onChangeText={setNombre}
-        />
+        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Nombre del Restaurante</Text>
+          <TextInput
+            className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+            style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            value={nombre}
+            onChangeText={setNombre}
+            placeholder="Nombre de tu restaurante"
+            placeholderTextColor="#9CA3AF"
+          />
+        </Animated.View>
 
-        {/* Descripción */}
-        <Text className="font-bold mb-1 mt-4">Descripción</Text>
-        <TextInput
-          className="bg-gray-200 rounded-lg px-4 py-3 mb-4 text-gray-800 font-semibold"
-          value={descripcion}
-          onChangeText={setDescripcion}
-          multiline
-        />
+        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Descripción</Text>
+          <TextInput
+            className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+            style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            value={descripcion}
+            onChangeText={setDescripcion}
+            multiline
+            placeholder="Describe tu restaurante..."
+            placeholderTextColor="#9CA3AF"
+          />
+        </Animated.View>
 
-        {/* Dirección */}
-        <Text className="font-bold mb-1 mt-4">Dirección</Text>
-        <TextInput
-          className="bg-gray-200 rounded-lg px-4 py-3 mb-4 text-gray-800 font-semibold"
-          value={direccion}
-          onChangeText={setDireccion}
-        />
-        <TouchableOpacity
-          className="items-center flex-row gap-2 mb-4"
-          onPress={() => router.push('/restaurantes/seleccionar-direccion')}
-        >
-          <FontAwesome name="map-marker" size={24} color="#003399" />
-          <Text className="text-primary font-bold text-lg">Seleccionar en el mapa</Text>
-        </TouchableOpacity>
+        <Animated.View entering={FadeInDown.delay(250).duration(400)}>
+          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Dirección</Text>
+          <TextInput
+            className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+            style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            value={direccion}
+            onChangeText={setDireccion}
+            placeholder="Dirección del restaurante"
+            placeholderTextColor="#9CA3AF"
+          />
+        </Animated.View>
 
-        {/* Horarios */}
-        <TimePickerInput label="Hora de Apertura" value={horaApertura} onChange={setHoraApertura} />
-        <TimePickerInput label="Hora de Cierre" value={horaCierre} onChange={setHoraCierre} />
+        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <TouchableOpacity
+            className={`flex-row items-center gap-3 mb-4 p-4 rounded-2xl ${latitud && longitud ? darkMode ? "bg-gray-800 border border-green-500/30" : "bg-white border border-green-400" : darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"}`}
+            style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            onPress={() => router.push('/restaurantes/seleccionar-direccion')}
+          >
+            <FontAwesome name="map-marker" size={22} color={latitud && longitud ? "#4CAF50" : "#2563EB"} />
+            {latitud && longitud ? (
+              <View className="flex-1">
+                <Text className="text-green-600 font-bold">Ubicación seleccionada</Text>
+                <Text className="text-green-500 text-xs">{parseFloat(latitud).toFixed(4)}, {parseFloat(longitud).toFixed(4)}</Text>
+              </View>
+            ) : (
+              <Text className="text-primary font-bold flex-1">Seleccionar en el mapa</Text>
+            )}
+            <Ionicons name="chevron-forward" size={18} color={latitud && longitud ? "#4CAF50" : "#2563EB"} />
+          </TouchableOpacity>
+        </Animated.View>
 
-        {/* Estado */}
-        <Text className="font-bold mb-1 mt-2">Estado</Text>
-        <View className="bg-gray-200 rounded-xl mb-4">
-          <Picker selectedValue={estado} onValueChange={(itemValue) => setEstado(itemValue)} style={{ height: 50 }}>
-            <Picker.Item label="Selecciona un estado" value="" />
-            {estadosDisponibles.map((estadoItem) => (
-              <Picker.Item key={estadoItem.id} label={estadoItem.nombre} value={estadoItem.id} />
-            ))}
-          </Picker>
-        </View>
+        <Animated.View entering={FadeInDown.delay(350).duration(400)}>
+          <TimePickerInput label="Hora de Apertura" value={horaApertura} onChange={setHoraApertura} />
+          <TimePickerInput label="Hora de Cierre" value={horaCierre} onChange={setHoraCierre} />
+        </Animated.View>
 
-        {/* Categoría */}
-        <Text className="font-bold mb-1 mt-2">Categoría</Text>
-        <View className="bg-gray-200 rounded-xl mb-4">
-          <Picker selectedValue={categoria} onValueChange={(itemValue) => setCategoria(itemValue)} style={{ height: 50 }}>
-            <Picker.Item label="Selecciona una categoría" value="" />
-            {categoriasDisponibles.map((cat) => (
-              <Picker.Item key={cat.id} label={cat.nombre} value={cat.id} />
-            ))}
-          </Picker>
-        </View>
+        <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Estado</Text>
+          <ThemePicker
+            selectedValue={estado}
+            onValueChange={(itemValue) => setEstado(itemValue)}
+            items={[
+              { label: 'Selecciona un estado', value: '' },
+              ...estadosDisponibles.map((estadoItem) => ({ label: estadoItem.nombre, value: estadoItem.id })),
+            ]}
+            placeholder="Selecciona un estado"
+          />
+        </Animated.View>
 
-        {/* Teléfono con CountryPicker */}
-        <View className='flex-row items-center gap-2 mb-4'>
-          <View className='flex-row items-center bg-gray-300 px-1 py-3 rounded-lg'>
-            <CountryPicker
-              countryCode={country.cca2 as any}
-              withFilter
-              withFlag
-              withCallingCode
-              withEmoji
-              onSelect={onSelect}
-              visible={visible}
-              onClose={() => setVisible(false)}
-            />
-            <TouchableOpacity onPress={() => setVisible(true)}>
-              <Text style={{ fontSize: 16, marginRight: 5 }}>+{country.callingCode[0]}</Text>
-            </TouchableOpacity>
+        <Animated.View entering={FadeInDown.delay(450).duration(400)}>
+          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Categoría</Text>
+          <ThemePicker
+            selectedValue={categoria}
+            onValueChange={(itemValue) => setCategoria(itemValue)}
+            items={[
+              { label: 'Selecciona una categoría', value: '' },
+              ...categoriasDisponibles.map((cat) => ({ label: cat.nombre, value: cat.id })),
+            ]}
+            placeholder="Selecciona una categoría"
+          />
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(500).duration(400)}>
+          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Teléfono</Text>
+          <View className="flex-row items-center gap-2 mb-4">
+            <View
+              className={`flex-row items-center ${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4`}
+              style={[darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, { height: 48 }]}
+            >
+              <CountryPicker
+                countryCode={country.cca2 as any}
+                withFilter
+                withFlag
+                withCallingCode
+                withEmoji
+                onSelect={onSelect}
+                visible={visible}
+                onClose={() => setVisible(false)}
+                theme={darkMode ? DARK_THEME : undefined}
+              />
+              <TouchableOpacity onPress={() => setVisible(true)}>
+                <Text className={`${darkMode ? "text-gray-300" : "text-gray-600"}`} style={{ fontSize: 16, marginRight: 5 }}>+{country.callingCode[0]}</Text>
+              </TouchableOpacity>
+            </View>
+            <View className="flex-1">
+              <TextInput
+                placeholder="Número de teléfono"
+                value={telefono}
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^0-9]/g, '');
+                  if (cleaned.length <= 10) setTelefono(cleaned);
+                }}
+                keyboardType="phone-pad"
+                placeholderTextColor="#9CA3AF"
+                className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+                style={[darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, { height: 48 }]}
+              />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <TextInput
-              placeholder="Ingresa tu numero de telefono"
-              value={telefono}
-              onChangeText={(text) => {
-                const cleaned = text.replace(/[^0-9]/g, '');
-                if (cleaned.length <= 10) setTelefono(cleaned);
-              }}
-              keyboardType="phone-pad"
-              className="bg-gray-200 rounded-lg px-4 py-3 text-gray-800 font-semibold"
-            />
-          </View>
-        </View>
+        </Animated.View>
 
-        {/* Página Web */}
-        <Text className="font-bold mb-1 mt-4">Página Web</Text>
-        <TextInput
-          className="bg-gray-200 rounded-lg px-4 py-3 mb-4 text-gray-800 font-semibold"
-          value={paginaWeb}
-          onChangeText={setPaginaWeb}
-        />
+        <Animated.View entering={FadeInDown.delay(550).duration(400)}>
+          <TouchableOpacity
+            onPress={handleGuardar}
+            className="bg-secondary py-3.5 px-6 rounded-2xl mt-6 mb-4"
+            style={{ shadowColor: '#65A30D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+          >
+            <Text className="text-white text-center font-bold text-lg">
+              {restauranteId ? 'Guardar Cambios' : 'Registrar Restaurante'}
+            </Text>
+          </TouchableOpacity>
 
-        {/* Capacidad */}
-        <Text className="font-bold mb-1 mt-4">Capacidad</Text>
-        <TextInput
-          className="bg-gray-200 rounded-lg px-4 py-3 mb-4 text-gray-800 font-semibold"
-          value={capacidad}
-          onChangeText={setCapacidad}
-          keyboardType="numeric"
-        />
-
-        {/* Botón guardar */}
-        <TouchableOpacity onPress={handleGuardar} className="bg-secondary rounded-full py-3 mt-8 mb-4">
-          <Text className="text-white text-center font-semibold text-lg">
-            {restauranteId ? 'Guardar Cambios' : 'Registrar Restaurante'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.replace('/(comercio)/perfil')} className="mb-8">
-          <Text className="text-primary text-center font-semibold text-lg">
-            Cancelar
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace('/(comercio)/perfil')} className="mb-8 py-2">
+            <Text className="text-primary text-center font-semibold">
+              Cancelar
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

@@ -1,97 +1,76 @@
 import { images } from "@/constants";
 import { useState, useRef, useEffect } from "react";
-import { View, ScrollView, Image, Text, StyleSheet, LayoutChangeEvent } from "react-native";
+import { View, ScrollView, Image, TouchableOpacity, LayoutChangeEvent } from "react-native";
 
-const imagesCarrusel = [
-  images.banner_1,
-  images.banner_2,
-  images.banner_3,
+const slides = [
+  { image: images.banner_1 },
+  { image: images.banner_2 },
+  { image: images.banner_3 },
 ];
 
 export default function Carrusel() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [direction, setDirection] = useState<"forward" | "backward">("forward");
+  const [width, setWidth] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const handleScroll = (event: any) => {
-    const slide = Math.ceil(
-      event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
-    );
-    if (slide !== activeIndex) setActiveIndex(slide);
+  const handleScroll = (e: any) => {
+    const i = Math.round(e.nativeEvent.contentOffset.x / (width || 1));
+    if (i !== activeIndex) setActiveIndex(i);
   };
 
-  const onLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setDimensions({ width, height });
+  const onLayout = (e: LayoutChangeEvent) => {
+    setWidth(e.nativeEvent.layout.width);
   };
 
-  // 🕒 Carrusel automático (rebote)
+  const scrollTo = (i: number) => {
+    scrollRef.current?.scrollTo({ x: i * width, animated: true });
+    setActiveIndex(i);
+  };
+
   useEffect(() => {
-    if (dimensions.width === 0) return; // no inicies hasta tener medidas
-
+    if (width === 0) return;
     const interval = setInterval(() => {
-      let nextIndex = activeIndex;
-
-      if (direction === "forward") {
-        nextIndex = activeIndex + 1;
-        if (nextIndex >= imagesCarrusel.length - 1) {
-          nextIndex = imagesCarrusel.length - 1;
-          setDirection("backward");
-        }
-      } else {
-        nextIndex = activeIndex - 1;
-        if (nextIndex <= 0) {
-          nextIndex = 0;
-          setDirection("forward");
-        }
-      }
-
-      scrollRef.current?.scrollTo({
-        x: nextIndex * dimensions.width,
-        animated: true,
-      });
-
-      setActiveIndex(nextIndex);
-    }, 3000);
-
+      const next = (activeIndex + 1) % slides.length;
+      scrollTo(next);
+    }, 4000);
     return () => clearInterval(interval);
-  }, [activeIndex, direction, dimensions]);
+  }, [activeIndex, width]);
 
   return (
-    <View style={styles.container} onLayout={onLayout}>
-      {dimensions.width > 0 && (
+    <View onLayout={onLayout}>
+      {width > 0 && (
         <>
-          <ScrollView
-            ref={scrollRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-          >
-            {imagesCarrusel.map((img, index) => (
-              <Image
-                key={index}
-                source={typeof img === 'string' ? { uri: img } : img}
-                style={{
-                  width: dimensions.width,
-                  height: dimensions.height || 220,
-                  borderRadius: 12,
-                }}
-                resizeMode="contain"
-              />
-            ))}
-          </ScrollView>
-
-          <View style={styles.pagination}>
-            {imagesCarrusel.map((_, index) => (
-              <Text
-                key={index}
-                style={index === activeIndex ? styles.activeDot : styles.dot}
+            <View className="overflow-hidden rounded-2xl">
+              <ScrollView
+                ref={scrollRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+                style={{ height: 160 }}
               >
-                ●
-              </Text>
+                {slides.map((slide, i) => (
+                  <Image
+                    key={i}
+                    source={typeof slide.image === 'string' ? { uri: slide.image } : slide.image}
+                    style={{ width, height: 160 }}
+                    resizeMode="contain"
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          <View className="flex-row items-center justify-center w-full gap-1.5 mt-2">
+            {slides.map((_, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => scrollTo(i)}
+              >
+                <View
+                  className={`${i === activeIndex ? 'w-3 h-3 bg-blue-600' : 'w-2 h-2 bg-gray-300'}`}
+                  style={{ borderRadius: 99 }}
+                />
+              </TouchableOpacity>
             ))}
           </View>
         </>
@@ -99,29 +78,3 @@ export default function Carrusel() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 12,
-    overflow: "hidden",
-    justifyContent: "center",
-  },
-  pagination: {
-    flexDirection: "row",
-    position: "absolute",
-    bottom: 10,
-    alignSelf: "center",
-  },
-  dot: {
-    color: "#bbb",
-    fontSize: 18,
-    marginHorizontal: 3,
-  },
-  activeDot: {
-    color: "#003399",
-    fontSize: 20,
-    marginHorizontal: 3,
-  },
-});

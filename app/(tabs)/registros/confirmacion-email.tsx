@@ -1,18 +1,24 @@
-import { View, Text, TouchableOpacity, Image, Dimensions, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, TextInput } from "react-native";
 import React, { useRef, useState, useEffect } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { API_URL, images } from "@/constants";
+import { API_URL } from "@/constants";
 import CustomInput from "@/components/CustomInput";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from "@/store/theme.store";
 import axios from "axios";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import PopupMessage from "@/components/PopupMessage";
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Header from "@/components/ui/Header";
+import Card from "@/components/ui/Card";
+import CustomButton from "@/components/CustomButton";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function ConfirmacionEmail() {
   const router = useRouter();
   const { user, setUser } = useAuthStore();
   const token = useAuthStore((state) => state.user?.token);
+  const { darkMode } = useThemeStore();
 
   const [email, setEmail] = useState(user?.email || "");
   const [editandoEmail, setEditandoEmail] = useState(false);
@@ -31,7 +37,6 @@ export default function ConfirmacionEmail() {
     setTimeout(() => setPopup((prev) => ({ ...prev, visible: false })), 3000);
   };
 
-  // 🔹 Cooldown (contador)
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
     if (cooldown > 0) {
@@ -55,7 +60,6 @@ export default function ConfirmacionEmail() {
     }
   };
 
-  // 🔹 Enviar código de verificación por correo
   const handleEnviarCodigo = async () => {
     if (!email) return showPopup("Por favor ingresa tu correo electrónico", "warning");
     if (cooldown > 0) return;
@@ -67,14 +71,13 @@ export default function ConfirmacionEmail() {
       });
 
       showPopup("📧 Código enviado a tu correo electrónico", "check-circle");
-      setCooldown(300); // 5 minutos
+      setCooldown(300);
     } catch (err) {
       console.error(err);
       showPopup("Error al enviar el código. Intenta más tarde", "warning");
     }
   };
 
-  // 🔹 Confirmar código
   const handleSubmit = async () => {
     const code = otp.join("");
     if (code.length < 6) return showPopup("Por favor ingresa los 6 dígitos del código", "warning");
@@ -93,7 +96,6 @@ export default function ConfirmacionEmail() {
     }
   };
 
-  // 🔹 Guardar nuevo email
   const handleGuardarEmail = async () => {
     if (!email) return showPopup("Ingresa un correo válido", "warning");
 
@@ -122,102 +124,90 @@ export default function ConfirmacionEmail() {
   };
 
   return (
-    <SafeAreaView className="flex-1 gap-5 bg-white">
-      {/* Header */}
-      <View className="w-full relative" style={{ height: Dimensions.get("screen").height / 14 }}>
-        <View className="absolute top-8 left-5 z-10 flex-row items-center">
-          <TouchableOpacity
-            className="flex-row items-center"
-            onPress={() => router.push("/registros/confirmacion-registro")}
-          >
-            <Image
-              source={images.arrowBack}
-              style={{ tintColor: "#003399", width: 20, height: 20 }}
-            />
-            <Text className="text-xl text-primary ml-2 font-bold">Atrás</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <ScreenWrapper gradient>
+      <Header title="Verificar Email" showBack />
 
-      {/* Título */}
-      <Text className="text-center text-3xl font-extrabold text-secondary mt-4">
-        Confirma tu Correo Electrónico
-      </Text>
-
-      <Text className="text-xl mx-8 font-semibold">
-        Enviaremos un código a tu correo para confirmar la verificación.
-      </Text>
-
-      {/* Email */}
-      <View className="mx-4 mt-4">
-        <CustomInput
-          placeholder="Tu correo electrónico"
-          value={email}
-          label="Correo electrónico"
-          editable={editandoEmail}
-          onChangeText={setEmail}
-        />
-
-        <TouchableOpacity
-          onPress={editandoEmail ? handleGuardarEmail : () => setEditandoEmail(true)}
-          className="self-end mt-2"
-        >
-          <Text className="text-primary font-semibold">
-            {editandoEmail ? "Guardar correo" : "Editar correo"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Botón para enviar código */}
-      <TouchableOpacity
-        onPress={handleEnviarCodigo}
-        disabled={cooldown > 0}
-        className={`mx-10 py-3 rounded-xl ${cooldown > 0 ? "bg-gray-400" : "bg-secondary"}`}
-      >
-        <Text className="text-white font-bold text-center text-xl">
-          {cooldown > 0 ? `Reintentar en ${formatTime(cooldown)}` : "Enviar Código"}
+      <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="px-4">
+        <Text className="text-center text-2xl font-extrabold text-secondary mt-2 mb-2">
+          Confirma tu Correo Electrónico
         </Text>
-      </TouchableOpacity>
 
-      {/* Cajas de código */}
-      <View className="flex-row justify-center mt-8 gap-3">
-        {otp.map((digit, index) => (
-          <TextInput
-            key={index}
-            ref={(ref) => {
-              inputs.current[index] = ref;
-            }}
-            value={digit}
-            onChangeText={(text) => handleChange(text, index)}
-            onKeyPress={(e) => handleKeyPress(e, index)}
-            keyboardType="numeric"
-            maxLength={1}
-            className="w-12 h-14 bg-gray-200 rounded-xl text-center text-xl font-bold text-gray-800"
+        <Text className={`text-base mx-2 font-semibold text-center mb-6 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+          Enviaremos un código a tu correo para confirmar la verificación.
+        </Text>
+
+        <Card className="mb-4">
+          <CustomInput
+            placeholder="Tu correo electrónico"
+            value={email}
+            label="Correo electrónico"
+            editable={editandoEmail}
+            onChangeText={setEmail}
           />
-        ))}
-      </View>
 
-      {/* Confirmar */}
-      <TouchableOpacity onPress={handleSubmit} className="bg-primary mx-10 py-3 rounded-xl mt-8">
-        <Text className="text-white font-bold text-center text-xl">Confirmar Código</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            onPress={editandoEmail ? handleGuardarEmail : () => setEditandoEmail(true)}
+            className="self-end mt-2"
+          >
+            <Text className="text-primary font-semibold">
+              {editandoEmail ? "Guardar correo" : "Editar correo"}
+            </Text>
+          </TouchableOpacity>
+        </Card>
 
-      {/* Reenviar */}
+        <CustomButton
+          title={cooldown > 0 ? `Reintentar en ${formatTime(cooldown)}` : "Enviar Código"}
+          onPress={handleEnviarCodigo}
+          disabled={cooldown > 0}
+          style={cooldown > 0 ? 'bg-gray-400' : 'bg-secondary'}
+        />
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(300).duration(400).springify()}>
+        <View className="flex-row justify-center mt-6 gap-3 px-4">
+          {otp.map((digit, index) => (
+            <TextInput
+              key={index}
+              ref={(ref) => { inputs.current[index] = ref; }}
+              value={digit}
+              onChangeText={(text) => handleChange(text, index)}
+              onKeyPress={(e) => handleKeyPress(e, index)}
+              keyboardType="numeric"
+              maxLength={1}
+              className={`w-12 h-14 rounded-2xl text-center text-xl font-bold border-2 ${
+                darkMode
+                  ? 'bg-gray-800 text-gray-100 border-gray-700'
+                  : 'bg-white text-gray-800 border-purple-100'
+              }`}
+            />
+          ))}
+        </View>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(400).duration(400).springify()} className="px-4 mt-6">
+        <CustomButton
+          title="Confirmar Código"
+          onPress={handleSubmit}
+          style="bg-primary"
+        />
+      </Animated.View>
+
       {cooldown === 0 && (
-        <TouchableOpacity onPress={handleEnviarCodigo} className="mt-4">
-          <Text className="text-center text-primary font-semibold text-lg">
-            ¿No recibiste el código? Reenviar
-          </Text>
-        </TouchableOpacity>
+        <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} className="mt-4">
+          <TouchableOpacity onPress={handleEnviarCodigo}>
+            <Text className="text-center text-primary font-semibold text-lg">
+              ¿No recibiste el código? Reenviar
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
-      {/* Popup */}
       <PopupMessage
         visible={popup.visible}
         message={popup.message}
         icon={popup.icon}
         onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
       />
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

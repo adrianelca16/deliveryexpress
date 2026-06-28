@@ -1,40 +1,35 @@
 {
   "expo": {
-    "name": "DeliveryExpress",
-    "slug": "DeliveryExpress",
-    "version": "0.0.1",
+    "name": "Enruta",
+    "slug": "Enruta",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icono-principal.png",
-    "scheme": "delivery",
+    "scheme": "Enruta",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
 
     "ios": {
       "supportsTablet": true
     },
 
     "android": {
-      "package": "com.deliveryexpress.delivery",
+      "package": "com.enruta.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icono-principal.png",
-        "backgroundColor": "#003399"
+        "backgroundColor": "#2563EB"
       },
       "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
+      "usesCleartextTraffic": true,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "FOREGROUND_SERVICE"
-      ],
-      "config": {
-        "googleMaps": {
-          "apiKey": "${GOOGLE_MAPS_API_KEY}"
-        }
-      }
+      ]
     },
 
     "androidStatusBar": {
-      "backgroundColor": "#003399",
+      "backgroundColor": "#2563EB",
       "barStyle": "light-content"
     },
 
@@ -53,7 +48,7 @@
           "image": "./assets/images/icono-principal.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#003399"
+          "backgroundColor": "#2563EB"
         }
       ]
     ],
@@ -63,10 +58,7 @@
     },
 
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "5f760eaf-8a1a-4e9a-8a3e-b278ad887c4b"
-      }
+      "router": {}
     }
   }
 }

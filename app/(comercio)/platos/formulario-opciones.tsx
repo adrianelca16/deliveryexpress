@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
 import { API_URL } from "@/constants";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from "@/store/theme.store";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import PopupMessage from "@/components/PopupMessage";
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Card from "@/components/ui/Card";
+import Header from "@/components/ui/Header";
 
 export default function FormularioOpciones() {
-  const { id } = useLocalSearchParams(); // ID del plato
+  const { id } = useLocalSearchParams();
   const token = useAuthStore((state) => state.user?.token);
+  const { darkMode } = useThemeStore();
   const { user } = useAuthStore();
   const router = useRouter();
 
@@ -29,7 +34,6 @@ export default function FormularioOpciones() {
     setPopup({ visible: true, message, icon });
   };
 
-  // 🔹 Cargar datos existentes del plato (si ya tiene tipos de opciones)
   useEffect(() => {
     const fetchTipos = async () => {
       try {
@@ -53,7 +57,7 @@ export default function FormularioOpciones() {
           { nombre: "", obligatorio: false, multiple: false, opciones: [] },
         ]);
       } catch (err) {
-        console.log("❌ Error cargando tipos:", err);
+        console.log("Error cargando tipos:", err);
         setTipos([{ nombre: "", obligatorio: false, multiple: false, opciones: [] }]);
       } finally {
         setLoading(false);
@@ -64,12 +68,10 @@ export default function FormularioOpciones() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // 🔹 Añadir un nuevo tipo
   const handleAddTipo = () => {
     setTipos([...tipos, { nombre: "", obligatorio: false, multiple: false, opciones: [] }]);
   };
 
-  // 🔹 Eliminar tipo (local o de la BD)
   const handleRemoveTipo = async (index: number, tipoId?: number) => {
     if (tipoId) {
       try {
@@ -77,20 +79,18 @@ export default function FormularioOpciones() {
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {
-        console.log("❌ Error eliminando tipo:", err);
+        console.log("Error eliminando tipo:", err);
       }
     }
     setTipos(tipos.filter((_, i) => i !== index));
   };
 
-  // 🔹 Añadir opción dentro de un tipo
   const handleAddOpcion = (index: number) => {
     const nuevos = [...tipos];
     nuevos[index].opciones.push({ nombre: "", precio_adicional: "" });
     setTipos(nuevos);
   };
 
-  // 🔹 Eliminar opción (local o en BD)
   const handleRemoveOpcion = async (tipoIndex: number, opcionIndex: number, opcionId?: number) => {
     if (opcionId) {
       try {
@@ -98,7 +98,7 @@ export default function FormularioOpciones() {
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {
-        console.log("❌ Error eliminando opción:", err);
+        console.log("Error eliminando opción:", err);
       }
     }
 
@@ -107,7 +107,6 @@ export default function FormularioOpciones() {
     setTipos(nuevos);
   };
 
-  // 🔹 Cambiar valores
   const handleChangeTipo = (index: number, key: string, value: any) => {
     const nuevos = [...tipos];
     (nuevos[index] as any)[key] = value;
@@ -120,14 +119,12 @@ export default function FormularioOpciones() {
     setTipos(nuevos);
   };
 
-  // 🔹 Guardar todo
   const handleGuardar = async () => {
     try {
       for (const tipo of tipos) {
         let tipoId = tipo.id;
 
         if (!tipoId) {
-          // Crear nuevo tipo
           const tipoRes = await axios.post(
             `${API_URL}/api/restaurantes/tipos-opciones/`,
             {
@@ -141,7 +138,6 @@ export default function FormularioOpciones() {
           );
           tipoId = tipoRes.data.id;
         } else {
-          // Actualizar tipo existente
           await axios.put(
             `${API_URL}/api/restaurantes/tipos-opciones/${tipo.id}/`,
             {
@@ -153,7 +149,6 @@ export default function FormularioOpciones() {
           );
         }
 
-        // Guardar o actualizar opciones
         for (const opcion of tipo.opciones) {
           if (opcion.id) {
             await axios.put(
@@ -181,109 +176,122 @@ export default function FormularioOpciones() {
       showPopup("Opciones guardadas correctamente", "check-circle");
       router.push("/(comercio)/platos");
     } catch (err) {
-      console.log("❌ Error guardando opciones:", err);
+      console.log("Error guardando opciones:", err);
       showPopup("No se pudieron guardar las opciones", "cancel");
     }
   };
 
-  if (loading) return <Text className="text-center mt-10 text-gray-500">Cargando opciones...</Text>;
+  if (loading) return (
+    <ScreenWrapper>
+      <View className="flex-1 justify-center items-center">
+        <Text className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>Cargando opciones...</Text>
+      </View>
+    </ScreenWrapper>
+  );
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-row items-center px-4 py-3 justify-between">
-        <TouchableOpacity
-          onPress={() =>
-            router.push({
-              pathname: "/platos/formulario",
-              params: { id },
-            })
-          }
-          className="flex-row items-center"
-        >
-          <Ionicons name="arrow-back" size={22} color="#003399" />
-          <Text className="text-primary font-bold ml-2 text-lg">Atrás</Text>
-        </TouchableOpacity>
-      </View>
+    <ScreenWrapper gradient>
+      <Header title="Opciones del Plato" showBack gradient />
 
-      <ScrollView className="px-6" contentContainerStyle={{ paddingBottom: 100 }}>
-        <Text className="text-2xl font-bold text-secondary text-center mb-6">
-          Configurar Opciones del Plato
-        </Text>
+      <ScrollView className="px-6" contentContainerStyle={{ paddingBottom: 120 }}>
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} className="mb-2">
+          <Text className="text-lg font-bold text-secondary text-center">Configurar Opciones del Plato</Text>
+        </Animated.View>
 
         {tipos.map((tipo, i) => (
-          <View key={i} className="bg-gray-100 rounded-2xl p-4 mb-6">
-            <View className="flex-row justify-between items-center mb-2">
-              <Text className="font-bold text-lg text-primary">Tipo #{i + 1}</Text>
-              <TouchableOpacity onPress={() => handleRemoveTipo(i, tipo.id)}>
-                <MaterialIcons name="delete" size={22} color="#ef4444" />
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              placeholder="Ej. Tamaño, Extras..."
-              value={tipo.nombre}
-              onChangeText={(t) => handleChangeTipo(i, "nombre", t)}
-              className="bg-white rounded-xl p-3 mb-3"
-            />
-
-            <View className="flex-row justify-between mb-3">
-              <View className="flex-row items-center gap-2">
-                <Text className="font-semibold text-gray-700">Obligatorio</Text>
-                <Switch
-                  value={tipo.obligatorio}
-                  onValueChange={(v) => handleChangeTipo(i, "obligatorio", v)}
-                />
+          <Animated.View key={`tipo-${i}`} entering={FadeInDown.delay(150 + i * 60).duration(400)}>
+            <Card className="mb-6">
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="font-bold text-lg text-primary">Tipo #{i + 1}</Text>
+                <TouchableOpacity className="w-8 h-8 rounded-full items-center justify-center bg-red-50" onPress={() => handleRemoveTipo(i, tipo.id)}>
+                  <MaterialIcons name="delete" size={18} color="#ef4444" />
+                </TouchableOpacity>
               </View>
-              <View className="flex-row items-center gap-2">
-                <Text className="font-semibold text-gray-700">Múltiple</Text>
-                <Switch
-                  value={tipo.multiple}
-                  onValueChange={(v) => handleChangeTipo(i, "multiple", v)}
-                />
-              </View>
-            </View>
 
-            <Text className="font-semibold text-gray-700 mb-2">Opciones:</Text>
+              <TextInput
+                placeholder="Ej. Tamaño, Extras..."
+                placeholderTextColor="#9CA3AF"
+                value={tipo.nombre}
+                onChangeText={(t) => handleChangeTipo(i, "nombre", t)}
+                className={`rounded-2xl p-3.5 mb-4 ${darkMode ? "bg-gray-700 text-white" : "bg-gray-50 text-gray-900 border border-purple-100/50"}`}
+              />
 
-            {tipo.opciones.map((op, j) => (
-              <View key={j} className="bg-white rounded-xl p-3 mb-2">
-                <View className="flex-row justify-between items-center">
-                  <TextInput
-                    placeholder="Nombre de la opción"
-                    value={op.nombre}
-                    onChangeText={(t) => handleChangeOpcion(i, j, "nombre", t)}
-                    className="border-b border-gray-300 flex-1 mr-2"
+              <View className="flex-row justify-between mb-4">
+                <View className="flex-row items-center gap-2">
+                  <Text className={`font-semibold text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Obligatorio</Text>
+                  <Switch
+                    value={tipo.obligatorio}
+                    onValueChange={(v) => handleChangeTipo(i, "obligatorio", v)}
+                    trackColor={{ false: "#D9D9D9", true: "#2563EB" }}
+                    thumbColor="#2563EB"
                   />
-                  <TouchableOpacity onPress={() => handleRemoveOpcion(i, j, op.id)}>
-                    <MaterialIcons name="delete" size={20} color="#ef4444" />
-                  </TouchableOpacity>
                 </View>
-                <TextInput
-                  placeholder="Precio adicional (0.00)"
-                  keyboardType="numeric"
-                  value={op.precio_adicional?.toString() || ""}
-                  onChangeText={(t) => handleChangeOpcion(i, j, "precio_adicional", t)}
-                  className="border-b border-gray-300 mt-2"
-                />
+                <View className="flex-row items-center gap-2">
+                  <Text className={`font-semibold text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Múltiple</Text>
+                  <Switch
+                    value={tipo.multiple}
+                    onValueChange={(v) => handleChangeTipo(i, "multiple", v)}
+                    trackColor={{ false: "#D9D9D9", true: "#2563EB" }}
+                    thumbColor="#2563EB"
+                  />
+                </View>
               </View>
-            ))}
 
-            <TouchableOpacity
-              onPress={() => handleAddOpcion(i)}
-              className="bg-primary rounded-full py-2 mt-2"
-            >
-              <Text className="text-center text-white font-bold">+ Añadir Opción</Text>
-            </TouchableOpacity>
-          </View>
+              <Text className={`font-semibold text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Opciones:</Text>
+
+              {tipo.opciones.map((op, j) => (
+                <View key={`op-${j}`} className={`rounded-2xl p-3 mb-2 ${darkMode ? "bg-gray-700" : "bg-gray-50 border border-purple-100/50"}`}>
+                  <View className="flex-row justify-between items-center">
+                    <TextInput
+                      placeholder="Nombre de la opción"
+                      placeholderTextColor="#9CA3AF"
+                      value={op.nombre}
+                      onChangeText={(t) => handleChangeOpcion(i, j, "nombre", t)}
+                      className={`flex-1 mr-2 text-sm ${darkMode ? "text-white" : "text-gray-900"}`}
+                    />
+                    <TouchableOpacity onPress={() => handleRemoveOpcion(i, j, op.id)}>
+                      <MaterialIcons name="delete" size={18} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput
+                    placeholder="Precio adicional (0.00)"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                    value={op.precio_adicional?.toString() || ""}
+                    onChangeText={(t) => handleChangeOpcion(i, j, "precio_adicional", t)}
+                    className={`mt-2 text-sm border-b ${darkMode ? "text-white border-gray-600" : "text-gray-900 border-gray-300"}`}
+                  />
+                </View>
+              ))}
+
+              <TouchableOpacity
+                onPress={() => handleAddOpcion(i)}
+                className="bg-primary py-2.5 px-6 rounded-2xl mt-2"
+                style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 }}
+              >
+                <Text className="text-center text-white font-semibold text-sm">+ Añadir Opción</Text>
+              </TouchableOpacity>
+            </Card>
+          </Animated.View>
         ))}
 
-        <TouchableOpacity onPress={handleAddTipo} className="bg-secondary rounded-full py-3 mb-6">
-          <Text className="text-center text-white font-bold text-lg">+ Añadir Tipo</Text>
-        </TouchableOpacity>
+        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <TouchableOpacity
+            onPress={handleAddTipo}
+            className="bg-secondary py-3.5 px-6 rounded-2xl mb-4"
+            style={{ shadowColor: '#65A30D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+          >
+            <Text className="text-center text-white font-bold">+ Añadir Tipo</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleGuardar} className="bg-primary rounded-full py-4 mb-10">
-          <Text className="text-center text-white font-bold text-lg">Guardar Todo</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleGuardar}
+            className="bg-primary py-3.5 px-6 rounded-2xl mb-10"
+            style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+          >
+            <Text className="text-center text-white font-bold text-lg">Guardar Todo</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
 
       <PopupMessage
@@ -292,6 +300,6 @@ export default function FormularioOpciones() {
         icon={popup.icon}
         onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
       />
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

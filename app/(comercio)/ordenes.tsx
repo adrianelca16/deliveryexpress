@@ -1,22 +1,29 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useState, useCallback } from 'react';
 import axios from 'axios';
 import { API_URL } from '@/constants';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 import { Orden } from '@/type';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import ThemePicker from '@/components/ThemePicker';
+import ScreenWrapper from '@/components/ui/ScreenWrapper';
+import Card from '@/components/ui/Card';
+import Header from '@/components/ui/Header';
 
 export default function Ordenes() {
   const token = useAuthStore((state) => state.user?.token);
+  const { darkMode } = useThemeStore();
   const router = useRouter();
 
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [estados, setEstados] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [fechaFilter, setFechaFilter] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const fetchOrdenes = async () => {
     try {
@@ -34,9 +41,7 @@ export default function Ordenes() {
       const res = await axios.get(`${API_URL}/api/ordenes/estados-orden/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setEstados(res.data.map((e: any) => e.nombre)); // Ajusta según tu API
-
-      console.log(res.data.map((e: any) => e.nombre));
+      setEstados(res.data.map((e: any) => e.nombre));
     } catch (err) {
       console.log('Error al obtener los estados:', err);
     }
@@ -50,144 +55,156 @@ export default function Ordenes() {
     }, [])
   );
 
-  // Filtrado por estado y fecha
   const ordenesFiltradas = ordenes
     .filter((orden) => {
       const statusMatch = statusFilter ? orden.estado_nombre === statusFilter : true;
       const fechaMatch = fechaFilter ? orden.creado_en?.startsWith(fechaFilter) : true;
       return statusMatch && fechaMatch;
     })
-    .sort((a, b) => (b.numero_orden ?? 0) - (a.numero_orden ?? 0)); // 🔹 de mayor a menor
+    .sort((a, b) => (b.numero_orden ?? 0) - (a.numero_orden ?? 0));
 
-  // Función para asignar color según el estado
   const colorEstado = (estado: string) => {
-    switch (estado.toLowerCase()) {
-      case 'pago por verificar':
-        return '#FBC02D';
-
-      case 'pendiente':
-        return '#9E9E9E';
-
-      case 'aceptada':
-        return '#0033A0';
-
-      case 'asignada':
-        return '#FF9800';
-
-      case 'en camino':
-        return '#009688';
-
-      case 'entregada':
-        return '#4CAF50'; // verde
-
-      case 'cancelada':
-        return '#F44336'; // rojo
+    if (!darkMode) {
+      switch (estado.toLowerCase()) {
+        case 'pago por verificar': return '#FBC02D';
+        case 'pendiente': return '#9E9E9E';
+        case 'aceptada': return '#0033A0';
+        case 'asignada': return '#FF9800';
+        case 'en camino': return '#009688';
+        case 'entregada': return '#4CAF50';
+        case 'cancelada': return '#F44336';
+      }
+    } else {
+      switch (estado.toLowerCase()) {
+        case 'pago por verificar': return '#FDD835';
+        case 'pendiente': return '#D1D5DB';
+        case 'aceptada': return '#60A5FA';
+        case 'asignada': return '#FFB74D';
+        case 'en camino': return '#4DB6AC';
+        case 'entregada': return '#81C784';
+        case 'cancelada': return '#EF9A9A';
+      }
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="p-4">
+    <ScreenWrapper gradient>
+      <Header title="Órdenes" showBack backHref="/(comercio)" gradient />
 
-        <View className="flex-row items-center px-4 py-3 bg-white justify-between ">
-          <View className="flex-row items-center">
-            <TouchableOpacity onPress={() => router.replace('/(comercio)')} className="mr-3 flex-row">
-              <Ionicons name="arrow-back" size={22} color="#003399" />
-              <Text className="text-xl font-bold text-primary">Atrás</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity onPress={() => router.push("/profile")} className="items-center mr-4">
-            <Ionicons name="notifications" size={32} color="#FF6600" />
-          </TouchableOpacity>
-        </View>
-
-
-        <View className='flex-row gap-4 justify-evenly px-4 mt-2'>
-          <View className="bg-gray-300 elevation-md rounded-full px-2 w-2/4">
-            <Picker
-              selectedValue={fechaFilter}
-              onValueChange={(itemValue) => setFechaFilter(itemValue)}
+      <View className="px-5">
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} className="flex-row gap-3 mt-2">
+          <View className="flex-1">
+            <TouchableOpacity
+              onPress={() => setShowDatePicker(true)}
+              className={`flex-row items-center justify-between px-4 py-3.5 rounded-2xl ${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"}`}
+              style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
             >
-              <Picker.Item label="Fecha" value="" />
-              {/* Generar últimos 7 días */}
-              {Array.from({ length: 7 }).map((_, i) => {
-                const fecha = new Date();
-                fecha.setDate(fecha.getDate() - i);
-                const fechaStr = fecha.toISOString().split('T')[0];
-                return <Picker.Item key={fechaStr} label={fechaStr} value={fechaStr} />;
-              })}
-            </Picker>
+              <Text className={`text-sm font-medium ${fechaFilter ? (darkMode ? "text-white" : "text-gray-900") : (darkMode ? "text-gray-400" : "text-gray-500")}`}>
+                {fechaFilter || "Fecha"}
+              </Text>
+              {fechaFilter ? (
+                <TouchableOpacity onPress={() => setFechaFilter('')}>
+                  <Ionicons name="close-circle" size={20} color={darkMode ? "#9CA3AF" : "#6B7280"} />
+                </TouchableOpacity>
+              ) : (
+                <Ionicons name="calendar-outline" size={20} color={darkMode ? "#D1D5DB" : "#2563EB"} />
+              )}
+            </TouchableOpacity>
+            {showDatePicker && Platform.OS === 'ios' && (
+              <View className={`rounded-2xl overflow-hidden mb-4 ${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"}`}>
+                <DateTimePicker
+                  value={fechaFilter ? new Date(fechaFilter + 'T00:00:00') : new Date()}
+                  mode="date"
+                  display="spinner"
+                  themeVariant={darkMode ? "dark" : "light"}
+                  onChange={(event, selectedDate) => {
+                    if (selectedDate) {
+                      setFechaFilter(selectedDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(false)}
+                  className="py-2 items-center"
+                >
+                  <Text className="text-primary font-bold">Cerrar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {showDatePicker && Platform.OS === 'android' && (
+              <DateTimePicker
+                value={fechaFilter ? new Date(fechaFilter + 'T00:00:00') : new Date()}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (selectedDate) {
+                    setFechaFilter(selectedDate.toISOString().split('T')[0]);
+                  }
+                }}
+              />
+            )}
           </View>
 
-          <View className="bg-gray-300 elevation-md rounded-full px-2 w-2/4">
-            <Picker
+          <View className="flex-1">
+            <ThemePicker
               selectedValue={statusFilter}
               onValueChange={(itemValue) => setStatusFilter(itemValue)}
-            >
-              <Picker.Item label="Estado" value="" />
-              {estados.map((estado) => (
-                <Picker.Item key={estado} label={estado} value={estado} />
-              ))}
-            </Picker>
+              items={[
+                { label: 'Estado', value: '' },
+                ...estados.map((estado) => ({ label: estado, value: estado })),
+              ]}
+              placeholder="Estado"
+            />
           </View>
-        </View>
-
-        {/* Select de Fecha */}
-
+        </Animated.View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16 }} className='mb-28'>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }} className="flex-1">
         {ordenesFiltradas.length === 0 ? (
-          <Text className="text-gray-500 text-center mt-4">No se encontraron órdenes.</Text>
+          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+            <Card>
+              <Text className={`${darkMode ? "text-gray-400" : "text-gray-500"} text-center`}>No se encontraron órdenes.</Text>
+            </Card>
+          </Animated.View>
         ) : (
-          ordenesFiltradas.map((orden) => (
-            <TouchableOpacity
-              key={orden.id}
-              className="bg-gray-100 elevation-md rounded-2xl p-4 mb-4 flex-row justify-between items-center"
-              style={{
-                borderLeftWidth: 4,
-                borderLeftColor: colorEstado(orden?.estado_nombre || ""),
-              }}
-              onPress={() => {
-                router.push({
-                  pathname: "/(comercio)/ordenes/orden-detalle",
-                  params: { id: orden.id },
-                });
-              }}
-            >
-              <View>
-                <View className="flex-row justify-between items-center">
-                  <Text className="font-bold text-lg text-secondary">
-                    Orden #{orden.numero_orden}
-                  </Text>
-
-                </View>
-
-                {/* Detalles */}
-                <Text className="text-gray-600 mt-2">
-                  {new Date(orden.creado_en).toLocaleDateString("es-ES", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </Text>
-                <Text className='mt-2' style={{ color: colorEstado(orden.estado_nombre || "") }}>
-                  Estado: {orden.estado_nombre}
-                </Text>
-              </View>
-
-              <View className='text-center'>
-                <Text className='text-xl font-bold text-primary text-center'>${orden.total}</Text>
-                <Text className='text-gray-500 text-center text-sm'>Ver Detalles</Text>
-              </View>
-
-
-            </TouchableOpacity>
-
+          ordenesFiltradas.map((orden, index) => (
+            <Animated.View key={orden.id} entering={FadeInDown.delay(200 + index * 60).duration(400)}>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push({
+                    pathname: "/(comercio)/ordenes/orden-detalle",
+                    params: { id: orden.id },
+                  });
+                }}
+              >
+                <Card className="flex-row justify-between items-center" gradient>
+                  <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: 16, borderBottomLeftRadius: 16, backgroundColor: colorEstado(orden?.estado_nombre || "") }} />
+                  <View className="flex-1 ml-2">
+                    <Text className={`font-bold text-lg ${darkMode ? "text-white" : "text-secondary"}`}>
+                      Orden #{orden.numero_orden}
+                    </Text>
+                    <Text className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      {new Date(orden.creado_en).toLocaleDateString("es-ES", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </Text>
+                    <Text className='text-xs mt-1 font-semibold' style={{ color: colorEstado(orden.estado_nombre || "") }}>
+                      {orden.estado_nombre}
+                    </Text>
+                  </View>
+                  <View className="items-center">
+                    <Text className='text-xl font-bold text-primary'>${orden.total}</Text>
+                    <Text className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Ver más</Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            </Animated.View>
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

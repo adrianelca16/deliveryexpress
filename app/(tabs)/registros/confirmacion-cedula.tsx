@@ -1,20 +1,25 @@
-import { View, Text, Dimensions, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import React, { useCallback, useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { images, API_URL } from '@/constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { FontAwesome6, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 import ScreenLoading from '@/components/ScreenLoading';
 import PopupMessage from '@/components/PopupMessage';
+import ScreenWrapper from '@/components/ui/ScreenWrapper';
+import Header from '@/components/ui/Header';
+import Card from '@/components/ui/Card';
+import CustomButton from '@/components/CustomButton';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function ConfirmacionCedula() {
   const token = useAuthStore((state) => state.user?.token);
-
-  const [documento, setDocumento] = useState(false); // ✅ indica si ya hay doc
-  const [archivo, setArchivo] = useState<string | null>(null); // ✅ guarda URI o file
+  const { darkMode } = useThemeStore();
+  const [documento, setDocumento] = useState(false);
+  const [archivo, setArchivo] = useState<string | null>(null);
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -29,7 +34,6 @@ export default function ConfirmacionCedula() {
     setPopup({ visible: true, message, icon });
   };
 
-  // Abrir cámara
   const tomarFoto = async () => {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -43,7 +47,6 @@ export default function ConfirmacionCedula() {
     }
   };
 
-  // Seleccionar desde galería
   const subirArchivo = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -57,43 +60,36 @@ export default function ConfirmacionCedula() {
     }
   };
 
-  // Confirmar y enviar a backend
   const confirmar = async () => {
-   
+    if (!archivo) {
+      showPopup('Por favor, sube un documento', 'warning');
+      return;
+    }
 
-    if (archivo) {
-      const formData = new FormData();
-      formData.append('cedula_imagen', {
-        uri: archivo,
-        type: 'image/jpeg',
-        name: 'documento.jpg',
-      } as any);
+    const formData = new FormData();
+    formData.append('cedula_imagen', {
+      uri: archivo,
+      type: 'image/jpeg',
+      name: 'documento.jpg',
+    } as any);
 
-      try {
-        const res = await axios.patch(`${API_URL}/api/user/usuario/${user?.$id}/`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    try {
+      const res = await axios.patch(`${API_URL}/api/user/usuario/${user?.$id}/`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        if (res.data.cedula_imagen) {
-          showPopup('Documento validado', 'check-circle')
-          router.push('/registros/foto-perfil');
-        } else {
-          showPopup('No se pudo verificar el documento', 'cancel')
-        }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (error) {
-        showPopup('Hubo un problema al enviar el documento', 'cancel')
+      if (res.data.cedula_imagen) {
+        showPopup('Documento validado', 'check-circle');
+        setTimeout(() => router.push('/registros/foto-perfil'), 1000);
+      } else {
+        showPopup('No se pudo verificar el documento', 'cancel');
       }
+    } catch (error) {
+      showPopup('Hubo un problema al enviar el documento', 'cancel');
     }
-
-    if(documento) {
-      router.push('/registros/foto-perfil');
-    }
-
-    return  showPopup('Por favor, sube un documento', 'warning');
   };
 
   useFocusEffect(
@@ -111,7 +107,6 @@ export default function ConfirmacionCedula() {
         }
       };
       fetchUsuario();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.token])
   );
 
@@ -120,46 +115,45 @@ export default function ConfirmacionCedula() {
   }
 
   return (
-    <SafeAreaView className="flex-1 gap-5 bg-white">
-      <View className="w-full relative" style={{ height: Dimensions.get('screen').height / 14 }}>
-        <View className="absolute top-8 left-5 z-10 flex-row items-center">
-            <TouchableOpacity className="flex-row items-center" onPress={() => router.push('/registros/confirmacion-registro')}>
-              <Image source={images.arrowBack} style={{ tintColor: '#003399', width: 20, height: 20 }} />
-              <Text className="text-xl text-primary ml-2 font-bold">Atrás</Text>
-            </TouchableOpacity>
-        </View>
-      </View>
+    <ScreenWrapper gradient>
+      <Header title="Validar Identidad" showBack />
 
-      <Text className='text-secondary text-2xl text-center font-extrabold'>Validemos tu identidad</Text>
+      <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="px-4">
+        <Text className="text-secondary text-2xl text-center font-extrabold mb-6">Validemos tu identidad</Text>
 
-      {/* Botón cámara */}
-      <TouchableOpacity
-        className={`mt-4 w-3/5 rounded-xl self-center items-center p-4 gap-2 ${documento ? 'bg-secondary' : 'bg-primary'}`}
-        onPress={tomarFoto}
-      >
-        <FontAwesome6 name="camera" size={72} color="white" />
-        <Text className="text-white font-bold text-xl">Tomar una foto a tu documento</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={tomarFoto} activeOpacity={0.8}>
+          <Card className="items-center py-6 mb-3">
+            <View className={`w-20 h-20 rounded-2xl items-center justify-center mb-3 ${documento ? 'bg-green-100' : 'bg-primary/10'}`}>
+              <FontAwesome6 name="camera" size={40} color={documento ? '#65A30D' : '#2563EB'} />
+            </View>
+            <Text className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>Tomar foto a tu documento</Text>
+            <Text className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Usa la cámara para capturar tu cédula</Text>
+          </Card>
+        </TouchableOpacity>
 
-      {/* Botón subir archivo */}
-      <TouchableOpacity
-        className={`mt-2 w-3/5 rounded-xl self-center items-center p-4 gap-2 ${documento ? 'bg-secondary' : 'bg-primary'}`}
-        onPress={subirArchivo}
-      >
-        <MaterialCommunityIcons name="file-upload" size={72} color="white" />
-        <Text className="text-white font-bold text-xl text-center">Sube tu documento</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={subirArchivo} activeOpacity={0.8}>
+          <Card className="items-center py-6 mb-3">
+            <View className={`w-20 h-20 rounded-2xl items-center justify-center mb-3 ${documento ? 'bg-green-100' : 'bg-primary/10'}`}>
+              <MaterialCommunityIcons name="file-upload" size={40} color={documento ? '#65A30D' : '#2563EB'} />
+            </View>
+            <Text className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>Subir documento</Text>
+            <Text className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Selecciona desde tu galería</Text>
+          </Card>
+        </TouchableOpacity>
 
-      {/* Botón confirmar */}
-      <TouchableOpacity
-        className={`w-2/4 self-center rounded-xl mt-8 justify-center items-center p-4 ${documento ? 'bg-secondary' : 'bg-gray-300'}`}
-        disabled={!documento}
-        onPress={confirmar}
-      >
-        <Text className={`font-bold ${documento ? 'text-white' : 'text-gray-700'}`}>
-          Confirmar
-        </Text>
-      </TouchableOpacity>
+        {archivo && (
+          <Animated.View entering={FadeInDown.delay(300).duration(400).springify()} className="items-center my-4">
+            <Image source={{ uri: archivo }} className="w-48 h-48 rounded-2xl border-2 border-purple-200" resizeMode="cover" />
+          </Animated.View>
+        )}
+
+        <CustomButton
+          title="Confirmar"
+          onPress={confirmar}
+          disabled={!documento}
+          style={documento ? 'bg-secondary' : 'bg-gray-300'}
+        />
+      </Animated.View>
 
       <PopupMessage
         visible={popup.visible}
@@ -167,6 +161,6 @@ export default function ConfirmacionCedula() {
         icon={popup.icon}
         onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
       />
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

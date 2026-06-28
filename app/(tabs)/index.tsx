@@ -1,478 +1,359 @@
-import { SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
 import {
-    ScrollView,
-    Text,
-    View,
-    Image,
-    TextInput,
-    FlatList,
-    TouchableOpacity,
-    ImageBackground,
+  ScrollView,
+  Text,
+  View,
+  Image,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
 } from "react-native";
-import { API_URL, images } from "@/constants";
-import { useCallback, useEffect, useState } from "react";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { API_URL, images, getCategoryImage, getCategoryColor } from "@/constants";
+import { useCallback, useState } from "react";
 import axios from "axios";
 import { Categoria, Direccion } from "@/type";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from "@/store/theme.store";
 import { router, useFocusEffect } from "expo-router";
-import { FontAwesome, FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import { useCarrito } from "@/store/useCart";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Carrusel from "@/components/Carrusel";
-import PopupMessage from "@/components/PopupMessage";
 import ScreenLoading from "@/components/ScreenLoading";
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import LocationHeader from "@/components/ui/LocationHeader";
 
 export default function Index() {
-    const token = useAuthStore((state) => state.user?.token);
-    const user = useAuthStore((store) => store.user);
-    const [direccionPrincipal, setDireccionPrincipal] = useState<Direccion | null>(
-        null
-    );
+  const token = useAuthStore((state) => state.user?.token);
+  const user = useAuthStore((store) => store.user);
+  const [direccionPrincipal, setDireccionPrincipal] = useState<Direccion | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [restaurantesTop, setRestaurantesTop] = useState<any[]>([]);
+  const [categoriasDisponibles, setCategoriasDisponibles] = useState<Categoria[]>([]);
+  const [platosPromocion, setPlatosPromocion] = useState<any[]>([]);
+  const [platosDescuento, setPlatosDescuento] = useState<any[]>([]);
+  const { darkMode } = useThemeStore();
 
-    const [loading, setLoading] = useState(true)
+  const [busqueda, setBusqueda] = useState('');
 
-    const [restaurantesTop, setRestaurantesTop] = useState<any[]>([]);
-    const [categoriasDisponibles, setCategoriasDisponibles] = useState<
-        Categoria[]
-    >([]);
-    const [platosPromocion, setPlatosPromocion] = useState<any[]>([]);
-
-    const { carrito, agregarAlCarrito, quitarDelCarrito } = useCarrito();
-
-    const [popup, setPopup] = useState({
-        visible: false,
-        message: "",
-        icon: "info" as keyof typeof MaterialIcons.glyphMap,
-    });
-
-    const showPopup = (message: string, icon: keyof typeof MaterialIcons.glyphMap = "info") => {
-        setPopup({ visible: true, message, icon });
-    };
-
-    const fetchValidacion = async () => {
-        try {
-            const res = await axios.get(`${API_URL}/api/user/usuario/`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            const data = Array.isArray(res.data) ? res.data[0] : res.data;
-
-            const email = data.verificacion_email;
-            const telefono = data.verificacion_telefono;
-            const cedula = data.verificacion_identidad;
-            // Paso 1: Validar cuenta
-            if (!email || !telefono || !cedula) {
-                showPopup("Debes confirmar tu cuenta antes de continuar.", "warning");
-                setTimeout(() => {
-                    router.replace("/(tabs)/registros/confirmacion-registro");
-                }, 2000);
-            }
-        } catch (err) {
-            console.log("Error en validación de usuario:", err);
-        }
-    };
-
-
-    /** 🔹 Obtener categorías */
-    const fetchCategorias = async () => {
-        try {
-            const res = await axios.get(`${API_URL}/api/restaurantes/categorias/`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            setCategoriasDisponibles(res.data);
-        } catch (err) {
-            console.log("Error obteniendo categorías:", err);
-        }
-    };
-
-    const fetchRestaurantes = async () => {
-        try {
-            const res = await axios.get(`${API_URL}/api/restaurantes/restaurantes/`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            const top = [...res.data]
-                .sort(
-                    (a, b) => (b.calificacion_promedio || 0) - (a.calificacion_promedio || 0)
-                )
-                .slice(0, 5);
-
-            setRestaurantesTop(top);
-        } catch (err) {
-            console.log("Error obteniendo restaurantes:", err);
-        }
-    };
-
-    /** 🔹 Obtener platos con descuento */
-    const fetchPlatos = async () => {
-        try {
-            const res = await axios.get(`${API_URL}/api/restaurantes/platos/`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            const platosConDescuento = res.data.map((plato: any) => {
-                const descuento =
-                    plato.precio && plato.precio_descuento
-                        ? Math.round(
-                            ((plato.precio - plato.precio_descuento) / plato.precio) * 100
-                        )
-                        : 0;
-
-                return { ...plato, descuento };
-            });
-
-            const ordenados = [...platosConDescuento].sort(
-                (a, b) => b.descuento - a.descuento
-            );
-            setPlatosPromocion(ordenados);
-        } catch (err) {
-            console.log("Error obteniendo platos:", err);
-        }
-    };
-
-    const fetchDireccionPrincipal = async () => {
-        try {
-            const res = await axios.get(`${API_URL}/api/user/direcciones/`, {
-                headers: { Authorization: `Bearer ${user?.token}` },
-            });
-            const principal = res.data.find((d: Direccion) => d.es_predeterminada);
-            setDireccionPrincipal(principal || null);
-        } catch (err) {
-            console.log("Error obteniendo direcciones:", err);
-        }
-    };
-
-    useEffect(() => {
-        fetchValidacion();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchCategorias();
-            fetchPlatos();
-            fetchRestaurantes();
-            fetchDireccionPrincipal();
-            fetchValidacion();
-            setLoading(false)
-
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [])
-    );
-
-    if(loading){
-        return <ScreenLoading />
+  const fetchCategorias = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/restaurantes/categorias/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategoriasDisponibles(res.data);
+    } catch (err) {
+      console.log("Error obteniendo categorías:", err);
     }
+  };
 
-    return (
-        <SafeAreaView className="flex-1 bg-white">
-            <ScrollView
-                contentContainerStyle={{ paddingBottom: 100 }}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* 🔹 Card Dirección + Perfil */}
-                <View className="flex-row justify-between items-center bg-white rounded-2xl px-4 py-3 mb-2 mt-2 mx-4">
-                    <TouchableOpacity onPress={() => router.push('/(tabs)/perfil/direccion')} className="flex-row gap-2 items-center">
-                        <FontAwesome5 name="map-marker-alt" size={24} color="#003399" />
-                        <Text className="text-base font-semibold text-gray-900">
-                            {direccionPrincipal?.direccion_texto || "Agregar dirección"}
-                        </Text>
-                    </TouchableOpacity>
+  const fetchRestaurantes = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/restaurantes/restaurantes/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const top = [...res.data]
+        .sort((a, b) => (b.calificacion_promedio || 0) - (a.calificacion_promedio || 0))
+        .slice(0, 5);
+      setRestaurantesTop(top);
+    } catch (err) {
+      console.log("Error obteniendo restaurantes:", err);
+    }
+  };
 
-                    <TouchableOpacity onPress={() => router.push("/profile")} className="items-center">
-                        <Ionicons name="notifications" size={32} color="#FF6600" />
-                    </TouchableOpacity>
-                </View>
+  const fetchPlatos = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/restaurantes/platos/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const ordenados = [...res.data]
+        .sort((a: any, b: any) => (b.calificacion_promedio || 0) - (a.calificacion_promedio || 0))
+        .slice(0, 10);
+      setPlatosPromocion(ordenados);
+      const descuento = [...res.data]
+        .filter((p: any) => p.precio_descuento)
+        .sort((a: any, b: any) => {
+          const dA = ((a.precio - a.precio_descuento) / a.precio) * 100;
+          const dB = ((b.precio - b.precio_descuento) / b.precio) * 100;
+          return dB - dA;
+        })
+        .slice(0, 5);
+      setPlatosDescuento(descuento);
+    } catch (err) {
+      console.log("Error obteniendo platos:", err);
+    }
+  };
 
-                {/* 🔹 Barra de búsqueda */}
-                <TouchableOpacity onPress={() => router.push("/search")}>
-                    <View className="flex-row items-center bg-tertiary rounded-xl pl-8 py-2 mb-4 mx-4">
-                        <TextInput
-                            placeholder="Buscar Restaurantes..."
-                            value={""}
-                            className="flex-1 text-base font-semibold text-gray-800"
-                            placeholderTextColor="#70747a"
-                            onFocus={() => router.push("/search")}
-                        />
-                        <Image
-                            source={images.search}
-                            className="w-5 h-5 mr-2"
-                            resizeMode="contain"
-                        />
-                    </View>
-                </TouchableOpacity>
+  const fetchDireccionPrincipal = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/user/direcciones/`, {
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      const principal = res.data.find((d: Direccion) => d.es_predeterminada);
+      setDireccionPrincipal(principal || null);
+    } catch (err) {
+      console.log("Error obteniendo direcciones:", err);
+    }
+  };
 
-                <View className="px-4 h-40 mb-4">
-                    <Carrusel />
-                </View>
+  useFocusEffect(
+    useCallback(() => {
+      fetchCategorias();
+      fetchPlatos();
+      fetchRestaurantes();
+      fetchDireccionPrincipal();
+      setLoading(false);
+    }, [])
+  );
 
+  if (loading) {
+    return <ScreenLoading />;
+  }
 
-                {/* 🔹 Categorías */}
-                <FlatList
-                    data={categoriasDisponibles}
-                    horizontal
-                    keyExtractor={(item) => item.id}
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 8 }}
-                    renderItem={({ item }) => {
-                        return (
-                            <TouchableOpacity
-                                onPress={() =>
-                                    router.push({
-                                        pathname: '/(tabs)/search',
-                                        params: { categoriaSeleccionada: item.nombre }
-                                    })
-                                }
-                                className={`px-2 items-center`}
+  return (
+    <ScreenWrapper className="bg-white">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header: ubicación + búsqueda */}
+        <View className="px-5 pt-2 pb-2">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 mr-3">
+              <LocationHeader
+                direccionTexto={direccionPrincipal?.nombre || direccionPrincipal?.direccion_texto}
+                onLocationPress={() => router.push('/(tabs)/perfil/direccion')}
+              />
+            </View>
+            <TouchableOpacity onPress={() => router.push("/profile")} className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center">
+              <Ionicons name="notifications-outline" size={24} color="#2563EB" />
+            </TouchableOpacity>
+          </View>
 
-                            >
-                                <View
-                                    className="mb-2 rounded-lg p-2"
-                                    style={{ backgroundColor: "#666666" }}
-                                >
-                                    <Image
-                                        source={{ uri: item.imagen }}
-                                        className="w-16 h-16 rounded-md"
-                                        resizeMode="cover"
-                                    />
-                                </View>
-                                <Text
-                                    className={`text-sm font-semibold`}
-                                >
-                                    {item.nombre}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    }}
-                />
-
-                {/* 🔹 Platos con mayor promoción */}
-                <Text className="mt-2 mx-4 mb-4 text-xl font-extrabold">
-                    Top 5 Promociones Especiales
-                </Text>
-                <View className="px-5">
-                    <FlatList
-                        data={platosPromocion.slice(0, 5)}
-                        horizontal
-                        keyExtractor={(item) => item.id}
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ gap: 10, paddingBottom: 16 }}
-                        decelerationRate="fast"
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-
-                                className="bg-gray-100 rounded-2xl overflow-hidden w-72 elevation-md"
-                                // 👆 my-2 agrega aire para que no se corte la sombra
-                                onPress={() =>
-                                    router.push({
-                                        pathname: "/restaurante/plato-detalle",
-                                        params: { id: item.id.toString() },
-                                    })
-                                }
-                            >
-                                <View className="relative">
-                                    <Image
-                                        source={{ uri: item.imagen }}
-                                        className="w-full h-32"
-                                        resizeMode="cover"
-                                    />
-                                    {item.descuento > 0 && (
-                                        <View className="absolute top-2 left-2 bg-secondary px-2 py-1 rounded-md">
-                                            <Text className="text-white text-sm font-semibold">
-                                                {item.descuento}% OFF
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <View className="px-4 py-2">
-                                    <View className="flex-row justify-between items-center">
-                                        {/* Nombre del plato */}
-                                        <Text className="text-lg font-bold text-gray-800 flex-shrink">
-                                            {item.nombre}
-                                        </Text>
-
-                                        {/* Puntuación con estrella */}
-                                        <View className="flex-row items-center ml-2">
-                                            <Text className="text-gray-800 text-base font-bold ml-1">
-                                                {item.calificacion_promedio?.toFixed(1) ?? "4.5"}
-                                            </Text>
-                                            <MaterialCommunityIcons name="star" size={20} color="#FF6600" />
-                                        </View>
-                                    </View>
-                                    <View className="flex-row gap-2">
-                                        <MaterialCommunityIcons name="silverware-fork-knife" size={24} color="#003399" />
-                                        <Text>{item.restaurante_nombre}</Text>
-                                    </View>
-
-
-                                    {/* Precio + contador */}
-                                    <View className="flex-row justify-between items-center mt-2">
-                                        {item.descuento > 0 ? (
-                                            <View className="flex-row items-center gap-2">
-                                                <Text className="text-primary text-lg font-bold">
-                                                    ${item.precio_descuento}
-                                                </Text>
-                                                <Text className="line-through text-base text-gray-400 mr-2">
-                                                    ${item.precio}
-                                                </Text>
-                                            </View>
-                                        ) : (
-                                            <Text className="text-gray-800 text-lg font-bold">${item.precio}</Text>
-                                        )}
-
-                                        {/* Contador */}
-                                        {carrito.find((c) => c.id === item.id.toString()) ? (
-                                            <View className="flex-row items-center gap-2">
-                                                <TouchableOpacity
-                                                    onPress={() => quitarDelCarrito(item.id.toString())}
-                                                    className="w-8 h-8 rounded-full items-center bg-gray-300 justify-center"
-                                                >
-                                                    <Text className="text-xl font-bold">−</Text>
-                                                </TouchableOpacity>
-
-                                                <Text className="text-lg font-semibold text-gray-800">
-                                                    {carrito.find((c) => c.id === item.id.toString())?.cantidad}
-                                                </Text>
-
-                                                <TouchableOpacity
-                                                    onPress={() =>
-                                                        agregarAlCarrito({
-                                                            id: item.id.toString(),
-                                                            nombre: item.nombre,
-                                                            precio: item.item.precio,
-                                                            imagen: item.imagen,
-                                                            nombre_restaurante: item.restaurante_nombre || "",
-                                                            restauranteId: item.restaurante || "",
-                                                            precio_descuento: item.precio_descuento,
-                                                            descripcion: item.descripcion
-                                                        })
-                                                    }
-                                                    className="w-8 h-8 rounded-full bg-primary items-center justify-center"
-                                                >
-                                                    <Text className="text-xl text-white">+</Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        ) : (
-                                            <TouchableOpacity
-                                                onPress={() =>
-                                                    agregarAlCarrito({
-                                                        id: item.id.toString(),
-                                                        nombre: item.nombre,
-                                                        precio: item.precio_descuento ?? item.precio,
-                                                        imagen: item.imagen,
-                                                        nombre_restaurante: item.restaurante_nombre || "",
-                                                        restauranteId: item.restaurante || "",
-                                                    })
-                                                }
-                                                className="w-10 h-10 rounded-full bg-primary items-center justify-center"
-                                            >
-                                                <Text className="text-xl font-bold text-white">+</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                </View>
-                            </TouchableOpacity>
-                        )}
-                    />
-                </View>
-
-
-                {/* 🔹 Restaurantes Destacados */}
-                <Text className="mt-2 mb-2 text-xl font-extrabold mx-4">
-                    Restaurantes Destacados
-                </Text>
-                <FlatList
-                    data={restaurantesTop}
-                    keyExtractor={(item) => item.id}
-                    scrollEnabled={false}
-                    contentContainerStyle={{ gap: 4, paddingHorizontal: 2 }}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            activeOpacity={0.9}
-                            onPress={() =>
-                                router.push({
-                                    pathname: "/restaurante/restaurante",
-                                    params: { id: item.id.toString() },
-                                })
-                            }
-                            className="rounded-2xl overflow-hidden mb-4 mx-4"
-                        >
-                            <ImageBackground
-                                source={images.placeholder}
-                                resizeMode="cover"
-                                style={{
-                                    width: "100%",
-                                    borderRadius: 16,
-                                    overflow: "hidden",
-                                }}
-                                imageStyle={{ borderRadius: 16 }}
-                            >
-                                {/* 🔹 Overlay oscuro */}
-                                <View
-                                    style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        backgroundColor: "rgba(0,0,0,0.45)", // 👈 opacidad ajustable
-                                    }}
-                                />
-
-                                {/* 🔹 Contenido encima del overlay */}
-                                <View
-                                    style={{
-                                        flexDirection: "row",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        paddingVertical: 16,
-                                        paddingHorizontal: 12,
-                                    }}
-                                >
-                                    {/* Imagen circular */}
-                                    <Image
-                                        source={item.imagen_url ? { uri: item.imagen_url } : images.avatar}
-                                        className="w-20 h-20 rounded-full border-2 border-white"
-                                        resizeMode="cover"
-                                    />
-
-                                    {/* Info central */}
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
-                                        <Text className="text-lg font-extrabold text-white" numberOfLines={1}>
-                                            {item.nombre}
-                                        </Text>
-                                        <Text className="text-base text-white font-semibold" numberOfLines={1}>
-                                            {typeof item.categoria === "string"
-                                                ? item.categoria
-                                                : item.categoria?.nombre}{" "}
-                                            • $$$
-                                        </Text>
-                                    </View>
-
-                                    {/* Puntuación derecha */}
-                                    <View className="flex-row items-center">
-                                        <Text className="text-xl font-bold text-white mr-1">
-                                            {item.calificacion_promedio?.toFixed(1) ?? "0.0"}
-                                        </Text>
-                                        <FontAwesome name="star" size={16} color="#f97316" />
-                                    </View>
-                                </View>
-                            </ImageBackground>
-                        </TouchableOpacity>
-
-                    )}
-                />
-            </ScrollView>
-            {/* 👇 siempre al final y fuera del flujo */}
-            <PopupMessage
-                visible={popup.visible}
-                message={popup.message}
-                icon={popup.icon}
-                onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+          <View className={`flex-row items-center mt-2 ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"} rounded-lg px-4`}>
+            <Image source={images.search} className="w-5 h-5" resizeMode="contain" tintColor={darkMode ? "#9CA3AF" : "#2563EB"} />
+            <TextInput
+              placeholder="Buscar Restaurantes o platos ..."
+              value={busqueda}
+              onChangeText={setBusqueda}
+              className={`flex-1 text-base font-semibold py-3.5 ${darkMode ? "text-gray-100" : "text-gray-800"}`}
+              placeholderTextColor={darkMode ? "#6B7280" : "#9CA3AF"}
+              onSubmitEditing={() => router.push({ pathname: "/search", params: { busqueda } })}
             />
-        </SafeAreaView>
-    );
+          </View>
+        </View>
+
+        {/* Categorías en círculo */}
+        {categoriasDisponibles.length > 0 && (
+          <View className="mb-3 mt-2">
+            <FlatList
+              data={categoriasDisponibles}
+              horizontal
+              keyExtractor={(item) => item.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12, gap: 16 }}
+              renderItem={({ item, index }) => (
+                <Animated.View entering={FadeInDown.delay(index * 50).duration(300)}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(tabs)/search',
+                        params: { categoriaSeleccionada: item.nombre },
+                      })
+                    }
+                    className="items-center gap-2"
+                  >
+                    <View className="w-20 h-20 rounded-full items-center justify-center shadow-sm"
+                      style={{ backgroundColor: getCategoryColor(item.nombre) }}
+                    >
+                      <Image
+                        source={item.imagen ? { uri: item.imagen } : getCategoryImage(item.nombre)}
+                        className="w-12 h-12"
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <Text className={`text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      {item.nombre}
+                    </Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            />
+          </View>
+        )}
+
+        {/* Publicidad */}
+        <View className="mx-5 mb-3">
+          <Carrusel />
+        </View>
+
+        {/* Populares */}
+        {platosPromocion.length > 0 && (
+          <View className="mb-0">
+            <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
+              <Text className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                Platos Más Populares
+              </Text>
+              <TouchableOpacity onPress={() => router.push("/search")}>
+                <Text className="text-sm font-semibold text-primary">Ver todo</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={platosPromocion}
+              horizontal
+              keyExtractor={(item) => item.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12, gap: 14 }}
+              renderItem={({ item, index }) => (
+                <Animated.View entering={FadeInDown.delay(index * 80).duration(400)} className="overflow-visible">
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: "/restaurante/plato-detalle",
+                        params: { id: item.id.toString() },
+                      })
+                    }
+                    className="w-52 bg-white rounded-2xl overflow-visible"
+                    style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
+                  >
+                    <Image
+                      source={{ uri: item.imagen }}
+                      className="w-full h-32 rounded-t-2xl"
+                      resizeMode="cover"
+                    />
+                    <View className="p-3">
+                      <Text className="font-semibold text-base text-gray-800" numberOfLines={1}>
+                        {item.nombre}
+                      </Text>
+                      <View className="flex-row items-center justify-between mt-0.5">
+                        <View className="flex-row items-center gap-1.5">
+                          <Text className="font-bold text-base text-gray-900">
+                            ${item.precio_descuento ?? item.precio}
+                          </Text>
+                          {item.precio_descuento && (
+                            <Text className="text-xs text-gray-400 line-through">
+                              ${item.precio}
+                            </Text>
+                          )}
+                        </View>
+                        <View className="flex-row items-center gap-0.5">
+                          <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+                          <Text className="text-xs font-semibold text-gray-600">
+                            {item.calificacion_promedio?.toFixed(1) ?? "4.5"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            />
+          </View>
+        )}
+
+        {/* Platos con Mayor Descuentos */}
+        {platosDescuento.length > 0 && (
+          <View className="mb-0">
+            <View className="flex-row items-center justify-between px-5 pb-3">
+              <Text className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                Platos con Mayor Descuentos
+              </Text>
+            </View>
+            <FlatList
+              data={platosDescuento}
+              horizontal
+              keyExtractor={(item) => item.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12, gap: 12 }}
+              renderItem={({ item, index }) => (
+                <Animated.View entering={FadeInDown.delay(index * 80).duration(400)} className="overflow-visible">
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: "/restaurante/plato-detalle",
+                        params: { id: item.id.toString() },
+                      })
+                    }
+                    className="w-64 bg-blue-50 rounded-2xl p-3.5 flex-row overflow-visible"
+                    style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
+                  >
+                    <View className="flex-1">
+                      <Text className="font-bold text-base text-gray-900" numberOfLines={1}>
+                        {item.nombre}
+                      </Text>
+                      <View className="flex-row items-center gap-1.5 mt-1">
+                        <Text className="text-sm text-gray-500 line-through">
+                          ${item.precio}
+                        </Text>
+                        <Ionicons name="arrow-forward" size={14} color="#2563EB" />
+                        <Text className="font-bold text-base text-gray-900">
+                          ${item.precio_descuento}
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="bg-blue-600 rounded-xl px-3 py-2 items-center justify-center ml-2">
+                      <Text className="font-bold text-base text-white">
+                        {Math.round(((item.precio - item.precio_descuento) / item.precio) * 100)}% off
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            />
+          </View>
+        )}
+
+        {/* Restaurantes Más Calificados */}
+        {restaurantesTop.length > 0 && (
+          <View className="mb-6">
+            <View className="flex-row items-center justify-between px-5 pt-4 pb-3">
+              <Text className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                Restaurantes Más Calificados
+              </Text>
+              <TouchableOpacity onPress={() => router.push("/search")}>
+                <Text className="text-sm font-semibold text-primary">Ver todo</Text>
+              </TouchableOpacity>
+            </View>
+            <View className="px-5 gap-4 pb-4">
+              {restaurantesTop.map((item, index) => (
+                <Animated.View key={item.id} entering={FadeInDown.delay(index * 100).duration(400)} className="overflow-visible">
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/restaurante/restaurante",
+                        params: { id: item.id.toString() },
+                      })
+                    }
+                    className="bg-white rounded-2xl overflow-visible"
+                    style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
+                  >
+                    <Image
+                      source={item.imagen_url ? { uri: item.imagen_url } : images.placeholder}
+                      className="w-full h-44 rounded-t-2xl"
+                      resizeMode="cover"
+                    />
+                    <View className="p-4">
+                      <Text className="font-bold text-xl text-gray-800" numberOfLines={1}>
+                        {item.nombre}
+                      </Text>
+                      <View className="flex-row items-center justify-between mt-1.5">
+                        <Text className="text-sm text-gray-500" numberOfLines={1}>
+                          {typeof item.categoria === "string" ? item.categoria : item.categoria?.nombre}
+                        </Text>
+                        <View className="flex-row items-center gap-0.5">
+                          <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+                          <Text className="text-sm font-semibold text-gray-600">
+                            {item.calificacion_promedio?.toFixed(1) ?? "0.0"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </ScreenWrapper>
+  );
 }

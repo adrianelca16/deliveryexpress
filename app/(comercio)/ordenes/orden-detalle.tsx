@@ -1,23 +1,28 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '@/constants';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Estado, Orden } from '@/type';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from "expo-clipboard";
+import ScreenWrapper from '@/components/ui/ScreenWrapper';
+import Card from '@/components/ui/Card';
+import Header from '@/components/ui/Header';
 
 export default function OrdenDetalle() {
-  const { id } = useLocalSearchParams(); // id de la orden desde la ruta
+  const { id } = useLocalSearchParams();
   const token = useAuthStore((state) => state.user?.token);
+  const { darkMode } = useThemeStore();
   const router = useRouter();
 
   const [orden, setOrden] = useState<Orden>();
   const [loading, setLoading] = useState(false);
   const [estado, setEstado] = useState<Estado>()
-  const [modalVisible, setModalVisible] = useState(false); // 👈 Estado del modal
+  const [modalVisible, setModalVisible] = useState(false);
 
   const fetchOrden = async () => {
     try {
@@ -25,9 +30,6 @@ export default function OrdenDetalle() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrden(res.data);
-
-
-      console.log('orden:', res.data)
     } catch (err) {
       console.log('Error obteniendo la orden:', err);
     }
@@ -48,7 +50,6 @@ export default function OrdenDetalle() {
     fetchOrden();
     fecthEstatusOrden();
 
-    // ⏱️ Intervalo para refrescar estado de la orden cada 30s
     const interval = setInterval(() => {
       fetchOrden();
     }, 30000);
@@ -57,7 +58,6 @@ export default function OrdenDetalle() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Cambiar el estado de la orden
   const cambiarEstado = async (nuevoEstado: string) => {
     if (!orden) return;
 
@@ -68,7 +68,7 @@ export default function OrdenDetalle() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       Alert.alert('Éxito', `Orden actualizada a "${nuevoEstado}"`);
-      fetchOrden(); // refrescar datos
+      fetchOrden();
     } catch (err: any) {
       console.log('Error al actualizar la orden:', err?.response?.data);
       Alert.alert('Error', 'No se pudo actualizar la orden');
@@ -77,208 +77,173 @@ export default function OrdenDetalle() {
     }
   };
 
-  // Color según estado
   const colorEstado = (estado?: string) => {
-    switch (estado?.toLowerCase()) {
-      case 'pago por verificar':
-        return '#FBC02D'; // azul
-
-      case 'pendiente':
-        return '#9E9E9E'; // amarillo
-
-      case 'aceptada':
-        return '#0033A0';
-
-      case 'asignada':
-        return '#FF9800';
-
-      case 'en camino':
-        return '#009688'; // naranja
-
-      case 'entregada':
-        return '#4CAF50'; // verde
-
-      case 'cancelada':
-        return '#F44336'; // rojo
+    if (!darkMode) {
+      switch (estado?.toLowerCase()) {
+        case 'pago por verificar': return '#FBC02D';
+        case 'pendiente': return '#9E9E9E';
+        case 'aceptada': return '#0033A0';
+        case 'asignada': return '#FF9800';
+        case 'en camino': return '#009688';
+        case 'entregada': return '#4CAF50';
+        case 'cancelada': return '#F44336';
+      }
+    } else {
+      switch (estado?.toLowerCase()) {
+        case 'pago por verificar': return '#FDD835';
+        case 'pendiente': return '#D1D5DB';
+        case 'aceptada': return '#60A5FA';
+        case 'asignada': return '#FFB74D';
+        case 'en camino': return '#4DB6AC';
+        case 'entregada': return '#81C784';
+        case 'cancelada': return '#EF9A9A';
+      }
     }
   };
 
   if (!orden) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center">
-        <Text>Cargando orden...</Text>
-      </SafeAreaView>
+      <ScreenWrapper>
+        <View className="flex-1 justify-center items-center">
+          <Text className={`${darkMode ? "text-gray-300" : "text-gray-600"}`}>Cargando orden...</Text>
+        </View>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* Botón volver */}
-      <View className="flex-row items-center px-4 py-3 bg-white justify-between ">
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => router.replace('/(comercio)/ordenes')} className="mr-3 flex-row">
-            <Ionicons name="arrow-back" size={22} color="#003399" />
-            <Text className="text-xl font-bold text-primary">Atrás</Text>
-          </TouchableOpacity>
-        </View>
+    <ScreenWrapper gradient>
+      <Header title="Detalle de Orden" showBack backHref="/(comercio)/ordenes" gradient />
 
-        <TouchableOpacity onPress={() => router.push("/profile")} className="items-center mr-4">
-          <Ionicons name="notifications" size={32} color="#FF6600" />
-        </TouchableOpacity>
-      </View>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom:100 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+          <Card>
+            <View className="flex-row justify-between items-center">
+              <Text className={`text-xl font-bold ${darkMode ? "text-white" : "text-secondary"}`}>Pedido #{orden.numero_orden}</Text>
+              <Text className="text-xl font-bold text-primary">${orden.total ?? 0}</Text>
+            </View>
+            <Text className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{new Date(orden.creado_en).toLocaleDateString("es-ES", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}</Text>
 
-        <Text className='text-center font-bold text-2xl text-secondary mb-6'>Detalle de Orden</Text>
+            <View className="flex-row items-center mt-3">
+              <View className="w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: colorEstado(orden.estado_nombre) }} />
+              <Text className="font-semibold text-sm" style={{ color: colorEstado(orden.estado_nombre) }}>
+                Estado: {orden.estado_nombre}
+              </Text>
+            </View>
+          </Card>
+        </Animated.View>
 
-        <View className='elevation-md rounded-xl py-4 px-6 bg-gray-50'>
-          <View className='flex-row justify-between'>
-            <Text className="text-xl font-bold text-secondary">Pedido #{orden.numero_orden}</Text>
-            <Text className="text-xl font-bold text-primary">${orden.total ?? 0}</Text>
-          </View>
-          <Text className="text-gray-600 font-medium">{new Date(orden.creado_en).toLocaleDateString("es-ES", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}</Text>
-
-
-          <Text className="font-semibold mt-4" style={{ color: colorEstado(orden.estado_nombre) }}>
-            Estado: {orden.estado_nombre}
-          </Text>
-
-        </View>
-
-        <Text className='text-xl font-bold mt-6 text-secondary'>Platos de la Orden</Text>
-        <View className='mt-2'>
-
-          {/* Aquí puedes listar productos si tu orden tiene items */}
+        <Animated.View entering={FadeInDown.delay(200).duration(400)} className="mt-6">
+          <Text className={`text-lg font-bold mb-3 ${darkMode ? "text-white" : "text-secondary"}`}>Platos de la Orden</Text>
           {orden.detalles?.map((item, index) => (
-            <View key={index} className="mb-2 p-4 justify-between items-center flex-row elevation-md rounded-2xl bg-gray-50 ">
-
-              <View className='flex-row gap-4'>
+            <Animated.View key={index} entering={FadeInDown.delay(250 + index * 60).duration(400)}>
+              <Card className="flex-row items-center mb-2">
                 <Image source={{ uri: `${item.plato_imagen}` }}
-                  className="h-28 w-28 rounded-xl"
+                  className="h-20 w-20 rounded-2xl"
                   resizeMode="cover" />
-                <View className='justify-evenly'>
-                  <Text className="text-primary font-medium">{item.plato_nombre}</Text>
-                  <Text className="text-gray-500">Cantidad: {item.cantidad}</Text>
+                <View className="ml-4 flex-1">
+                  <Text className="text-primary font-bold">{item.plato_nombre}</Text>
+                  <Text className={`text-sm mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Cantidad: {item.cantidad}</Text>
                 </View>
+              </Card>
+            </Animated.View>
+          ))}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(300).duration(400)} className="mt-6">
+          <Text className={`text-lg font-bold mb-3 ${darkMode ? "text-white" : "text-secondary"}`}>Dirección de envío</Text>
+          <Card>
+            <View className="flex-row items-center mb-3">
+              <View className="w-10 h-10 rounded-2xl items-center justify-center mr-3" style={{ backgroundColor: 'rgba(124,58,237,0.1)' }}>
+                <Ionicons name="person" size={18} color="#2563EB" />
+              </View>
+              <View className="flex-1">
+                <Text className={`font-semibold text-sm ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{orden.cliente_nombre}</Text>
+                <Text className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{orden.direccion_entrega}</Text>
               </View>
             </View>
-          ))}
-        </View>
-
-        <Text className='text-xl font-bold mt-6 text-secondary'>Direccion de envío</Text>
-
-        <View className='elevation-md rounded-2xl p-4 px-6 bg-gray-50 mt-6'>
-          <Text className='font-bold text-lg'>Nombre</Text>
-          <Text className='font-medium'>{orden.cliente_nombre}</Text>
-          <Text className='text-lg font-bold mt-2'>Direccion</Text>
-          <Text className='font-medium'>{orden.direccion_entrega}</Text>
-
-          <View className="justify-center items-center mt-2">
-            <TouchableOpacity className="bg-primary py-2 rounded-full px-8" onPress={() => {
-              console.log("🟢 Abriendo modal...");
-              setModalVisible(true);
-            }}>
-              <Text className="text-white font-bold">Ver Perfil</Text>
+            <TouchableOpacity
+              className="bg-primary py-3 px-6 rounded-2xl self-center"
+              style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+              onPress={() => setModalVisible(true)}>
+              <Text className="text-white font-bold text-sm">Ver Perfil del Cliente</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </Card>
+        </Animated.View>
 
-
-        {/* Botones de acción */}
-
-        <View className='flex-row justify-around items-center mt-6'>
+        <Animated.View entering={FadeInDown.delay(400).duration(400)} className="flex-row justify-around mt-8">
           {orden.estado_nombre?.toLowerCase() !== 'cancelada' && (
             <TouchableOpacity
               onPress={() => cambiarEstado('cancelada')}
-              className="bg-primary rounded-lg py-3 px-2 w-2/5"
+              className="bg-red-500 py-3.5 px-6 rounded-2xl flex-1 mr-2"
+              style={{ shadowColor: '#EF4444', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
               disabled={loading}
             >
-              <Text className="text-white text-center font-semibold">Cancelar Orden</Text>
+              <Text className="text-white text-center font-bold">Cancelar</Text>
             </TouchableOpacity>
           )}
 
           {orden.estado_nombre?.toLowerCase() === 'pendiente' && estado?.id && (
             <TouchableOpacity
               onPress={() => cambiarEstado(estado.id)}
-              className="bg-secondary rounded-lg py-3 px-2 w-2/5"
+              className="bg-secondary py-3.5 px-6 rounded-2xl flex-1 ml-2"
+              style={{ shadowColor: '#65A30D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
               disabled={loading}
             >
-              <Text className="text-white text-center font-semibold">Aceptar Orden</Text>
+              <Text className="text-white text-center font-bold">Aceptar</Text>
             </TouchableOpacity>
           )}
-        </View>
-
+        </Animated.View>
       </ScrollView>
 
-      {/* Modal del cliente */}
       <Modal
         visible={modalVisible}
         animationType="fade"
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: "white",
-              borderRadius: 20,
-              padding: 20,
-              width: "85%",
-              alignItems: "center",
-            }}
-          >
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <View className={`rounded-3xl p-6 w-5/6 items-center ${darkMode ? "bg-gray-800" : "bg-white"}`}>
             <Image
               source={{
-                uri:
-                  orden.cliente_foto ||
-                  "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+                uri: orden.cliente_foto || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
               }}
-              style={{
-                width: 100,
-                height: 100,
-                borderRadius: 50,
-                marginBottom: 10,
-              }}
+              className="w-24 h-24 rounded-3xl mb-4"
             />
-            <Text className="text-lg font-bold mb-1">{orden.cliente_nombre}</Text>
-            <Text className="text-gray-500">{orden.cliente_email || "Sin correo"}</Text>
+            <Text className={`text-lg font-bold mb-1 ${darkMode ? "text-white" : "text-gray-900"}`}>{orden.cliente_nombre}</Text>
+            <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{orden.cliente_email || "Sin correo"}</Text>
 
-            <View className="flex-row items-center mt-2">
-              <Text className="text-gray-500 mr-2">
+            <View className="flex-row items-center mt-3">
+              <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"} mr-2`}>
                 {orden.cliente_telefono || "Sin teléfono"}
               </Text>
               {orden.cliente_telefono && (
                 <TouchableOpacity
                   onPress={async () => {
                     await Clipboard.setStringAsync(orden.cliente_telefono || '');
-                    Alert.alert("📋 Copiado", "Número copiado al portapapeles");
+                    Alert.alert("Copiado", "Número copiado al portapapeles");
                   }}
-                  className="bg-secondary px-3 py-1 rounded-full"
+                  className="bg-secondary px-4 py-1.5 rounded-2xl"
                 >
-                  <Text className="text-white text-sm font-bold">Copiar</Text>
+                  <Text className="text-white text-xs font-bold">Copiar</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             <TouchableOpacity
-              className="bg-primary mt-6 py-2 px-8 rounded-full"
+              className="bg-primary mt-6 py-3 px-8 rounded-2xl"
+              style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
               onPress={() => setModalVisible(false)}
             >
-              <Text className="text-white font-bold text-center">Cerrar</Text>
+              <Text className="text-white font-bold">Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

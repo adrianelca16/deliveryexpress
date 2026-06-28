@@ -1,15 +1,21 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert, Image } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import axios from "axios";
-import { API_URL, images } from "@/constants";
+import { API_URL } from "@/constants";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from '@/store/theme.store';
 import { Direccion } from "@/type";
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Header from "@/components/ui/Header";
+import Card from "@/components/ui/Card";
+import CustomButton from "@/components/CustomButton";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function DireccionLista() {
   const token = useAuthStore((state) => state.user?.token);
+  const { darkMode } = useThemeStore();
   const [direcciones, setDirecciones] = useState<Direccion[]>([]);
 
   const fetchDirecciones = async () => {
@@ -31,7 +37,6 @@ export default function DireccionLista() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // 🔄 Refrescamos lista después de actualizar
       fetchDirecciones();
     } catch (error) {
       console.error("Error al marcar principal:", error);
@@ -66,101 +71,89 @@ export default function DireccionLista() {
   useFocusEffect(
     useCallback(() => {
       fetchDirecciones();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* Header */}
-      <View className="flex-row items-center px-4 py-3 bg-white justify-between">
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} className="mr-3 flex-row">
-            <Ionicons name="arrow-back" size={22} color="#003399" />
-            <Text className="text-xl font-bold text-primary">Atrás</Text>
-          </TouchableOpacity>
-          
-        </View>
+    <ScreenWrapper>
+      <Header title="Direcciones" showBack onBack={() => router.push("/(tabs)/profile")} />
 
-        <TouchableOpacity onPress={() => router.push("/profile")} className="items-center mr-4">
-          <Ionicons name="notifications" size={32} color="#FF6600" />
-        </TouchableOpacity>
+      <View className="px-4 mt-2">
+        <Text className="text-center text-gray-500 text-base mb-4">Gestiona tus puntos de entregas frecuentes con presición</Text>
+
+        <CustomButton
+          title="Añadir Dirección"
+          onPress={() => router.push({ pathname: "/perfil/formulario-direccion" })}
+          style="bg-primary w-full mb-4"
+        />
+
+        <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+          {direcciones.length === 0 ? (
+            <Animated.View entering={FadeInDown.duration(400).springify()}>
+              <Card>
+                <Text className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}>No tienes direcciones guardadas</Text>
+              </Card>
+            </Animated.View>
+          ) : (
+            direcciones.map((dir, index) => (
+              <Animated.View key={dir.id} entering={FadeInDown.delay(100 + index * 80).duration(400).springify()} className="mb-3">
+                <Card className='border-blue-300 dark:border-blue-700' style={{ elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+                  <View>
+                    <View className="flex-row items-center justify-between mb-1">
+                      <Text className={`font-bold text-lg text-blue-600 dark:text-blue-400`}>
+                        {dir.nombre}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          router.push({
+                            pathname: "/perfil/formulario-direccion",
+                            params: {
+                              id: dir.id.toString(),
+                              nombre: dir.nombre,
+                              direccion_texto: dir.direccion_texto,
+                              latitud: dir.latitud?.toString(),
+                              longitud: dir.longitud?.toString(),
+                            },
+                          });
+                        }}
+                        className="w-10 h-10 rounded-full items-center justify-center"
+                        style={{ backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(37,99,235,0.1)' }}
+                      >
+                        <MaterialCommunityIcons name="pencil" size={18} color="#2563EB" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {dir.direccion_texto}
+                    </Text>
+                    <View className="h-px bg-gray-200 my-3" />
+                    {dir.es_predeterminada ? (
+                      <View className="flex-row items-center">
+                        <Ionicons name="star" size={14} color={darkMode ? '#EAB308' : '#B8860B'} />
+                        <Text className="text-xs ml-1" style={{ color: darkMode ? '#EAB308' : '#B8860B' }}>Predeterminada</Text>
+                      </View>
+                    ) : (
+                      <View className="flex-row items-center justify-between">
+                        <TouchableOpacity
+                          onPress={() => marcarPrincipal(dir.id)}
+                          className="flex-row items-center"
+                        >
+                          <Text className="text-primary font-semibold text-sm">Establecer predeterminada</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => eliminarDireccion(dir.id)}
+                          className="w-10 h-10 rounded-full items-center justify-center bg-red-50 dark:bg-red-900/20"
+                        >
+                          <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                </Card>
+              </Animated.View>
+            ))
+          )}
+        </ScrollView>
       </View>
-
-      <Image source={images.papa_mapa} className="h-56 w-56 self-center" resizeMode="contain" />
-
-      <Text className="text-center text-secondary font-extrabold text-3xl">Mis Direcciones</Text>
-
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        <View className="px-4 mt-4 gap-4">
-          {direcciones.map((dir) => (
-            <View
-              key={dir.id}
-              className={`p-4 flex-row justify-between items-center rounded-xl elevation-md ${dir.es_predeterminada ? 'bg-primary' : 'bg-gray-100'}`}
-            >
-
-              <TouchableOpacity
-                onPress={() => marcarPrincipal(dir.id)}
-                className="mt-2 flex-row items-center"
-              >
-                <Ionicons
-                  name={dir.es_predeterminada ? "radio-button-on" : "radio-button-off"}
-                  size={18}
-                  color={dir.es_predeterminada ? "white" : "gray"}
-                />
-              </TouchableOpacity>
-              <View className="flex-1 pr-3 ml-2">
-                <Text className={`font-bold text-lg ${dir.es_predeterminada ? 'text-white' : 'text-gray-800'}`}>{dir.nombre}</Text>
-                <Text className={`${dir.es_predeterminada ? 'text-white' : 'text-gray-800'}`}>{dir.direccion_texto}</Text>
-              </View>
-
-              {/* Botones de acción */}
-              <View className="flex-row gap-2">
-                {/* Eliminar */}
-                <TouchableOpacity
-                  onPress={() => eliminarDireccion(dir.id)}
-                  className="p-2"
-                >
-                  <Ionicons name="trash-outline" size={20} color={dir.es_predeterminada ? "white" : "gray"} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-        <View className="px-6 items-center gap-4 mt-8">
-          <TouchableOpacity
-            onPress={() => router.push("/perfil/formulario-direccion")}
-            className="bg-secondary rounded-xl py-4 items-center elevation-md w-3/4"
-          >
-            <Text className="text-white font-bold text-lg">Añadir Dirección</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              const principal = direcciones.find((d) => d.es_predeterminada);
-              if (principal) {
-                router.push({
-                  pathname: "/perfil/formulario-direccion",
-                  params: {
-                    id: principal.id.toString(),
-                    nombre: principal.nombre,
-                    direccion_texto: principal.direccion_texto,
-                    latitud: principal.latitud?.toString(),
-                    longitud: principal.longitud?.toString(),
-                  },
-                });
-              }
-            }}
-            className="items-center w-3/4 flex-row gap-2 justify-center"
-          >
-            <Text className="text-primary font-bold text-lg">Editar Dirección</Text>
-            <MaterialCommunityIcons name="pencil" size={24} color="#003399" />
-          </TouchableOpacity>
-
-        </View>
-      </ScrollView>
-
-
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

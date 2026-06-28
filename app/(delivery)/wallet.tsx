@@ -1,110 +1,144 @@
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
-import React from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from "react-native";
+import { useCallback, useState } from "react";
 import { FontAwesome5, Feather } from "@expo/vector-icons";
-
-const transactions = [
-  {
-    id: "TX-001",
-    tipo: "Ingreso",
-    monto: 120.5,
-    fecha: "15 Sep, 2025",
-    estado: "Completado",
-  },
-  {
-    id: "TX-002",
-    tipo: "Retiro",
-    monto: -50.0,
-    fecha: "14 Sep, 2025",
-    estado: "Pendiente",
-  },
-  {
-    id: "TX-003",
-    tipo: "Ingreso",
-    monto: 80.0,
-    fecha: "12 Sep, 2025",
-    estado: "Completado",
-  },
-];
+import { useThemeStore } from "@/store/theme.store";
+import { useAuthStore } from "@/store/auth.store";
+import axios from "axios";
+import { API_URL } from "@/constants";
+import { useFocusEffect } from "expo-router";
+import { WalletData, Movimiento } from "@/type";
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Header from "@/components/ui/Header";
+import Card from "@/components/ui/Card";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function Wallet() {
+  const { darkMode, toggleDarkMode } = useThemeStore();
+  const token = useAuthStore((state) => state.user?.token);
+  const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchWallet = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/wallet/wallets/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data.length > 0) {
+        setWallet(res.data[0]);
+      }
+    } catch (err) {
+      console.log("Error obteniendo wallet:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchWallet();
+    }, [])
+  );
+
+  const movimientos = wallet?.movimientos || [];
+  const envios = movimientos.filter((m) => m.tipo === "ingreso").length;
+
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* Header */}
-      <View className="py-6 bg-blue-700">
-        <Text className="text-xl font-bold text-white text-center">Wallet</Text>
-      </View>
+    <ScreenWrapper gradient>
+      <Header title="Wallet" />
 
-      <View className="flex-row justify-between items-center px-4 py-2 mt-2">
-        {/* Saldo disponible */}
-        <View className="px-4 py-4 items-center bg-white rounded-2xl elevation-md flex-row justify-around gap-2 w-44">
-          <View>
-            <Text className="text-gray-500 mt-2">Saldo disponible</Text>
-            <Text className="text-xl font-bold text-green-600 mt-1">$250.50</Text>
-          </View>
-          <FontAwesome5 name="dollar-sign" size={20} color="#16a34a" />
+      {loading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#2563EB" />
         </View>
+      ) : (
+        <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+          <View className="flex-row justify-between items-center px-4 py-2 mt-2 gap-3">
+            <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="flex-1">
+              <Card>
+                <View className="flex-row items-center justify-between">
+                  <View>
+                    <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Saldo disponible</Text>
+                    <Text className="text-2xl font-bold text-green-600 mt-1">${wallet?.saldo?.toFixed(2) || "0.00"}</Text>
+                  </View>
+                  <View className="w-10 h-10 rounded-2xl bg-green-100 items-center justify-center">
+                    <FontAwesome5 name="dollar-sign" size={20} color="#16a34a" />
+                  </View>
+                </View>
+              </Card>
+            </Animated.View>
 
-        {/* Envíos */}
-        <View className="px-4 py-4 items-center bg-white rounded-2xl elevation-md justify-around flex-row gap-2 w-44">
-          <View>
-            <Text className="text-gray-500 mt-2">Envíos</Text>
-            <Text className="text-xl font-bold text-primary mt-1">8</Text>
+            <Animated.View entering={FadeInDown.delay(200).duration(400).springify()} className="flex-1">
+              <Card>
+                <View className="flex-row items-center justify-between">
+                  <View>
+                    <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Envíos</Text>
+                    <Text className="text-2xl font-bold text-primary mt-1">{envios}</Text>
+                  </View>
+                  <View className="w-10 h-10 rounded-2xl bg-purple-100 items-center justify-center">
+                    <Feather name="trending-up" size={20} color="#2563EB" />
+                  </View>
+                </View>
+              </Card>
+            </Animated.View>
           </View>
-          <Feather name="trending-up" size={20} color="#0033A0" />
 
-        </View>
-      </View>
+          <View className="px-4 mt-6">
+            <Text className={`font-bold text-lg mb-3 ${darkMode ? "text-gray-100" : "text-gray-800"}`}>
+              Historial de Transacciones
+            </Text>
 
+            {movimientos.length === 0 ? (
+              <Card>
+                <Text className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  No hay transacciones aún
+                </Text>
+              </Card>
+            ) : (
+              movimientos.map((tx, index) => (
+                <Animated.View key={tx.id} entering={FadeInDown.delay(200 + index * 80).duration(400).springify()}>
+                  <Card className="mb-3">
+                    <View className="flex-row justify-between items-center">
+                      <View className="flex-1">
+                        <Text className={`font-semibold capitalize ${darkMode ? "text-gray-100" : "text-gray-800"}`}>{tx.tipo}</Text>
+                        <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                          {new Date(tx.creado_en).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}
+                        </Text>
+                        {tx.descripcion ? (
+                          <Text className={`text-xs mt-1 ${darkMode ? "text-gray-500" : "text-gray-400"}`}>{tx.descripcion}</Text>
+                        ) : null}
+                      </View>
 
-      {/* Historial de Transacciones */}
-      <View className="px-6 mt-4">
-        <Text className="font-bold text-lg text-gray-800 mb-2">
-          Historial de Transacciones
-        </Text>
-      </View>
+                      <View className="items-end">
+                        <Text className={`font-bold text-lg ${tx.tipo === "ingreso" ? "text-green-600" : "text-red-600"}`}>
+                          {tx.tipo === "ingreso" ? `+ $${tx.monto.toFixed(2)}` : `- $${Math.abs(tx.monto).toFixed(2)}`}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                </Animated.View>
+              ))
+            )}
 
-      <ScrollView className="px-6 ">
-        {transactions.map((tx) => (
-          <View
-            key={tx.id}
-            className="bg-white rounded-2xl mt-4 elevation-md p-4 flex-row justify-between items-center"
-          >
-            {/* Info */}
-            <View>
-              <Text className="font-semibold text-gray-800">{tx.tipo}</Text>
-              <Text className="text-sm text-gray-500">{tx.fecha}</Text>
+            <View className="items-center mt-4">
+              <TouchableOpacity className="bg-secondary py-4 rounded-2xl w-3/4 self-center opacity-50 shadow-lg shadow-green-500/20">
+                <Text className="text-center text-white font-bold text-lg">Retirar</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Monto */}
-            <View className="items-end">
-              <Text
-                className={`font-bold text-lg ${tx.monto > 0 ? "text-green-600" : "text-red-600"
-                  }`}
-              >
-                {tx.monto > 0 ? `+ $${tx.monto}` : `- $${Math.abs(tx.monto)}`}
-              </Text>
-              <Text
-                className={`text-xs font-semibold ${tx.estado === "Completado"
-                  ? "text-green-500"
-                  : "text-yellow-500"
-                  }`}
-              >
-                {tx.estado}
-              </Text>
-            </View>
+            <Card className="mt-6">
+              <View className="flex-row justify-between items-center">
+                <Text className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Modo oscuro</Text>
+                <Switch
+                  value={darkMode}
+                  onValueChange={toggleDarkMode}
+                  trackColor={{ false: "#D9D9D9", true: "#2563EB" }}
+                  thumbColor="#2563EB"
+                />
+              </View>
+            </Card>
           </View>
-        ))}
-
-        <View className="mt-6">
-        <TouchableOpacity className="bg-secondary py-4 rounded-xl w-3/4 self-center">
-          <Text className="text-center text-white font-bold text-lg">Retirar</Text>
-        </TouchableOpacity>
-      </View>
-      </ScrollView>
-
-      
-
-    </SafeAreaView>
+        </ScrollView>
+      )}
+    </ScreenWrapper>
   );
 }

@@ -1,7 +1,8 @@
-import { View, Text, TextInput, TouchableOpacity } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, Animated as RNAnimated } from 'react-native'
 import { CustomInputProps } from '@/type'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Ionicons } from '@expo/vector-icons'
+import { useThemeStore } from '@/store/theme.store'
 
 const CustomInput = ({
   placeholder = 'Enter Text',
@@ -12,13 +13,31 @@ const CustomInput = ({
   keyboardType = "default",
   editable,
 }: CustomInputProps) => {
+  const darkMode = useThemeStore((s) => s.darkMode)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [focused, setFocused] = useState(false)
 
   return (
     <View className="w-full">
-      {label && <Text className="font-bold text-lg mb-2">{label}</Text>}
+      {label && (
+        <Text className={`font-semibold text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+          {label}
+        </Text>
+      )}
 
-      <View className="flex-row items-center bg-gray-300 rounded-lg px-4">
+      <View
+        className={`
+          flex-row items-center rounded-xl px-4
+          ${darkMode
+            ? focused
+              ? 'bg-gray-700 border border-blue-500'
+              : 'bg-gray-800 border border-gray-700'
+            : focused
+              ? 'bg-white border border-blue-400'
+              : 'bg-white border border-gray-200'
+          }
+        `}
+      >
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
@@ -27,17 +46,19 @@ const CustomInput = ({
           keyboardType={keyboardType}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           placeholder={placeholder}
-          placeholderTextColor="#555"
-          className="flex-1 py-4"
+          placeholderTextColor={darkMode ? "#6B7280" : "#9CA3AF"}
+          className={`flex-1 py-3.5 text-base ${darkMode ? "text-white" : "text-gray-900"}`}
           editable={editable}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
         />
 
         {secureTextEntry && (
-          <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+          <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)} className="p-1">
             <Ionicons
-              name={isPasswordVisible ? "eye-off" : "eye"}
-              size={22}
-              color="#555"
+              name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
+              size={20}
+              color={darkMode ? "#9CA3AF" : "#2563EB"}
             />
           </TouchableOpacity>
         )}

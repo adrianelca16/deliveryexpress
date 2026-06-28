@@ -1,38 +1,25 @@
 import { images } from "@/constants";
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 import { TabBarIconProps } from "@/type";
 import cn from "clsx";
 import { Redirect, Tabs } from "expo-router";
 import { Image, Text, View } from "react-native";
 
-const TabBarIcon = ({ focused, icon, title }: TabBarIconProps) => (
-    <View
-        className={cn(
-            "flex tab-icon justify-center items-center w-24 rounded-xl h-16",
-            focused ? "bg-blue-100" : ""
-        )}
-    >
-        <Image
-            source={icon}
-            className="size-7 mb-1"
-            resizeMode="contain"
-            tintColor={focused ? "#0033A0" : "#5D5F6D"}
-        />
-        <Text
-            className={cn(
-                "text-sm font-bold",
-                focused ? "text-blue-500" : "text-gray-400"
-            )}
-        >
-            {title}
-        </Text>
-    </View>
-
-)
+const TabBarIcon = ({ focused, icon, title }: TabBarIconProps) => {
+    const { darkMode } = useThemeStore();
+    return (
+        <View className="tab-icon flex justify-center items-center w-4">
+            <Image source={icon} className="size-7" resizeMode="cover" tintColor={focused ? '#2563EB' : (darkMode ? '#9CA3AF' : '#5D5F6D')} />
+            <Text className={cn('text-sm font-bold', focused ? (darkMode ? 'text-gray-100' : 'text-gray-800') : (darkMode ? 'text-gray-400' : 'text-gray-800'))}>
+                {title}
+            </Text>
+        </View>
+    );
+}
 export default function TabsLayout() {
 
-   
-
+    const { darkMode } = useThemeStore();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />
@@ -41,9 +28,22 @@ export default function TabsLayout() {
             headerShown: false,
             tabBarShowLabel: false,
             tabBarStyle: {
-                position: 'absolute',
+                borderTopLeftRadius: 50,
+                borderTopRightRadius: 50,
+                borderBottomLeftRadius: 50,
+                borderBottomRightRadius: 50,
+                marginHorizontal: 20,
                 height: 80,
-                backgroundColor: 'white'
+                position: 'absolute',
+                bottom: 20,
+                backgroundColor: darkMode ? '#1F2937' : 'white',
+                borderTopWidth: 0,
+                borderColor: 'transparent',
+                shadowColor: darkMode ? '#000' : '#2563EB',
+                shadowOffset: { width: 0, height: darkMode ? 0 : 2 },
+                shadowOpacity: darkMode ? 0 : 0.1,
+                shadowRadius: darkMode ? 0 : 4,
+                elevation: darkMode ? 0 : 5
             }
         }}>
             <Tabs.Screen
@@ -71,17 +71,9 @@ export default function TabsLayout() {
              <Tabs.Screen
                 name="orden/orden-detalle"
                 options={{
-                    href: null, // 👈 evita que aparezca como tab
+                    href: null,
                 }}
             />
-            {/*
-            <Tabs.Screen
-                name="orden/pago-movil"
-                options={{
-                    href: null, // 👈 evita que aparezca como tab
-                    tabBarStyle: { display: 'none' } // 👈 oculta el tab bar en esta pantalla
-                }}
-            /> */}
         </Tabs>
     );
 }

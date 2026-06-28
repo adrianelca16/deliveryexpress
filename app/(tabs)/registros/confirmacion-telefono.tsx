@@ -1,25 +1,31 @@
-import { View, Text, TouchableOpacity, Image, Dimensions, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, TextInput } from "react-native";
 import React, { useRef, useState, useEffect } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { API_URL, images } from "@/constants";
+import { API_URL } from "@/constants";
 import CustomInput from "@/components/CustomInput";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from "@/store/theme.store";
 import axios from "axios";
 import { MaterialIcons } from "@expo/vector-icons";
 import PopupMessage from "@/components/PopupMessage";
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Header from "@/components/ui/Header";
+import Card from "@/components/ui/Card";
+import CustomButton from "@/components/CustomButton";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function ConfirmacionTelefono() {
     const router = useRouter();
     const { user, setUser } = useAuthStore();
     const token = useAuthStore((state) => state.user?.token);
+    const { darkMode } = useThemeStore();
 
     const [telefono, setTelefono] = useState(user?.telefono || "");
     const [editandoTelefono, setEditandoTelefono] = useState(false);
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const inputs = useRef<(TextInput | null)[]>([]);
 
-    const [cooldown, setCooldown] = useState(0); // 🔹 Tiempo en segundos
+    const [cooldown, setCooldown] = useState(0);
     const [popup, setPopup] = useState({
         visible: false,
         message: "",
@@ -31,7 +37,6 @@ export default function ConfirmacionTelefono() {
         setTimeout(() => setPopup((prev) => ({ ...prev, visible: false })), 3000);
     };
 
-    // 🔹 Contador de cooldown
     useEffect(() => {
         let timer: ReturnType<typeof setInterval>;
         if (cooldown > 0) {
@@ -57,7 +62,7 @@ export default function ConfirmacionTelefono() {
 
     const handleSubmit = async () => {
         const code = otp.join("");
-        if (code.length < 6) return alert("Por favor ingresa los 6 dígitos del código.");
+        if (code.length < 6) return showPopup("Por favor ingresa los 6 dígitos del código.", "warning");
 
         try {
             const payload = { metodo: "telefono", codigo: code };
@@ -96,7 +101,7 @@ export default function ConfirmacionTelefono() {
 
     const handleEnviarCodigo = async () => {
         if (!telefono) return showPopup("Por favor ingresa tu número de teléfono", "warning");
-        if (cooldown > 0) return; // ⛔ evita que se reenvíe durante el cooldown
+        if (cooldown > 0) return;
 
         try {
             const payload = { metodo: "telefono" };
@@ -105,7 +110,7 @@ export default function ConfirmacionTelefono() {
             });
 
             showPopup("📲 Código enviado a tu número de teléfono", "check-circle");
-            setCooldown(300); // 🔹 5 minutos = 300 segundos
+            setCooldown(300);
         } catch (err) {
             console.error(err);
             showPopup("Error al enviar el código. Intenta más tarde", "warning");
@@ -119,105 +124,90 @@ export default function ConfirmacionTelefono() {
     };
 
     return (
-        <SafeAreaView className="flex-1 gap-5 bg-white">
-            {/* Header */}
-            <View className="w-full relative" style={{ height: Dimensions.get("screen").height / 14 }}>
-                <View className="absolute top-8 left-5 z-10 flex-row items-center">
-                    <TouchableOpacity
-                        className="flex-row items-center"
-                        onPress={() => router.push("/registros/confirmacion-registro")}
-                    >
-                        <Image
-                            source={images.arrowBack}
-                            style={{ tintColor: "#003399", width: 20, height: 20 }}
-                        />
-                        <Text className="text-xl text-primary ml-2 font-bold">Atrás</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+        <ScreenWrapper gradient>
+            <Header title="Verificar Teléfono" showBack />
 
-            {/* Título */}
-            <Text className="text-center text-3xl font-extrabold text-secondary mt-4">
-                Confirma tu Número de Teléfono
-            </Text>
-
-            <Text className="text-xl mx-8 font-semibold">
-                Enviaremos un código a tu teléfono para confirmar la verificación.
-            </Text>
-
-            {/* Teléfono */}
-            <View className="mx-4 mt-4">
-                <CustomInput
-                    placeholder="Tu número de teléfono"
-                    value={telefono}
-                    label="Número de teléfono"
-                    editable={editandoTelefono}
-                    onChangeText={setTelefono}
-                />
-
-                <TouchableOpacity
-                    onPress={editandoTelefono ? handleGuardarTelefono : () => setEditandoTelefono(true)}
-                    className="self-end mt-2"
-                >
-                    <Text className="text-primary font-semibold">
-                        {editandoTelefono ? "Guardar número" : "Editar número"}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Botón para enviar código */}
-            <TouchableOpacity
-                onPress={handleEnviarCodigo}
-                disabled={cooldown > 0}
-                className={`mx-10 py-3 rounded-xl ${cooldown > 0 ? "bg-gray-400" : "bg-secondary"
-                    }`}
-            >
-                <Text className="text-white font-bold text-center text-xl">
-                    {cooldown > 0
-                        ? `Reintentar en ${formatTime(cooldown)}`
-                        : "Enviar Código"}
+            <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="px-4">
+                <Text className="text-center text-2xl font-extrabold text-secondary mt-2 mb-2">
+                    Confirma tu Número de Teléfono
                 </Text>
-            </TouchableOpacity>
 
-            {/* Cajas de código */}
-            <View className="flex-row justify-center mt-8 gap-3">
-                {otp.map((digit, index) => (
-                    <TextInput
-                        key={index}
-                        ref={(ref) => {
-                            inputs.current[index] = ref;
-                        }}
-                        value={digit}
-                        onChangeText={(text) => handleChange(text, index)}
-                        onKeyPress={(e) => handleKeyPress(e, index)}
-                        keyboardType="numeric"
-                        maxLength={1}
-                        className="w-12 h-14 bg-gray-200 rounded-xl text-center text-xl font-bold text-gray-800"
+                <Text className={`text-base mx-2 font-semibold text-center mb-6 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                    Enviaremos un código a tu teléfono para confirmar la verificación.
+                </Text>
+
+                <Card className="mb-4">
+                    <CustomInput
+                        placeholder="Tu número de teléfono"
+                        value={telefono}
+                        label="Número de teléfono"
+                        editable={editandoTelefono}
+                        onChangeText={setTelefono}
                     />
-                ))}
-            </View>
 
-            {/* Confirmar */}
-            <TouchableOpacity onPress={handleSubmit} className="bg-primary mx-10 py-3 rounded-xl mt-8">
-                <Text className="text-white font-bold text-center text-xl">Confirmar Código</Text>
-            </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={editandoTelefono ? handleGuardarTelefono : () => setEditandoTelefono(true)}
+                        className="self-end mt-2"
+                    >
+                        <Text className="text-primary font-semibold">
+                            {editandoTelefono ? "Guardar número" : "Editar número"}
+                        </Text>
+                    </TouchableOpacity>
+                </Card>
 
-            {/* Botón alternativo de reenvío */}
+                <CustomButton
+                    title={cooldown > 0 ? `Reintentar en ${formatTime(cooldown)}` : "Enviar Código"}
+                    onPress={handleEnviarCodigo}
+                    disabled={cooldown > 0}
+                    style={cooldown > 0 ? 'bg-gray-400' : 'bg-secondary'}
+                />
+            </Animated.View>
+
+            <Animated.View entering={FadeInDown.delay(300).duration(400).springify()}>
+                <View className="flex-row justify-center mt-6 gap-3 px-4">
+                    {otp.map((digit, index) => (
+                        <TextInput
+                            key={index}
+                            ref={(ref) => { inputs.current[index] = ref; }}
+                            value={digit}
+                            onChangeText={(text) => handleChange(text, index)}
+                            onKeyPress={(e) => handleKeyPress(e, index)}
+                            keyboardType="numeric"
+                            maxLength={1}
+                            className={`w-12 h-14 rounded-2xl text-center text-xl font-bold border-2 ${
+                                darkMode
+                                    ? 'bg-gray-800 text-gray-100 border-gray-700'
+                                    : 'bg-white text-gray-800 border-purple-100'
+                            }`}
+                        />
+                    ))}
+                </View>
+            </Animated.View>
+
+            <Animated.View entering={FadeInDown.delay(400).duration(400).springify()} className="px-4 mt-6">
+                <CustomButton
+                    title="Confirmar Código"
+                    onPress={handleSubmit}
+                    style="bg-primary"
+                />
+            </Animated.View>
+
             {cooldown === 0 && (
-                <TouchableOpacity onPress={handleEnviarCodigo} className="mt-4">
-                    <Text className="text-center text-primary font-semibold text-lg">
-                        ¿No recibiste el código? Reenviar
-                    </Text>
-                </TouchableOpacity>
+                <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} className="mt-4">
+                    <TouchableOpacity onPress={handleEnviarCodigo}>
+                        <Text className="text-center text-primary font-semibold text-lg">
+                            ¿No recibiste el código? Reenviar
+                        </Text>
+                    </TouchableOpacity>
+                </Animated.View>
             )}
 
-            {/* Popup */}
             <PopupMessage
                 visible={popup.visible}
                 message={popup.message}
                 icon={popup.icon}
                 onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
             />
-        </SafeAreaView>
+        </ScreenWrapper>
     );
 }

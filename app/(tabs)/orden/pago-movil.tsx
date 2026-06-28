@@ -15,7 +15,8 @@ import axios from "axios";
 import { API_URL } from "@/constants";
 import { Direccion, Estado, MetodosPagos } from "@/type";
 import { useAuthStore } from "@/store/auth.store";
-import CountryPicker from "react-native-country-picker-modal";
+import { useThemeStore } from '@/store/theme.store';
+import CountryPicker, { DARK_THEME } from "react-native-country-picker-modal";
 import PopupMessage from "@/components/PopupMessage";
 import CustomButton from "@/components/CustomButton";
 
@@ -26,6 +27,7 @@ export default function PagoMovilModal() {
   const token = useAuthStore((state) => state.user?.token);
   const [metodosPago, setMetodosPago] = useState<MetodosPagos[]>([]);
   const { carrito, limpiarCarrito } = useCarrito();
+  const { darkMode } = useThemeStore();
   const router = useRouter();
   const [direccionPrincipal, setDireccionPrincipal] = useState<Direccion | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -164,10 +166,10 @@ const montoEnBs = montoTotalNum * 160;
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white px-6">
+    <SafeAreaView className={`flex-1 ${darkMode ? "bg-gray-900" : "bg-white"} px-6`}>
       <ScrollView showsVerticalScrollIndicator={false} className="mb-6 mt-2">
         <View className="flex-row gap-2 justify-center mt-2">
-          <MaterialCommunityIcons name="cellphone-check" size={24} color="#FF6600" />
+          <MaterialCommunityIcons name="cellphone-check" size={24} color="#65A30D" />
           <Text className="text-2xl text-secondary font-extrabold text-center">Pago Móvil</Text>
         </View>
 
@@ -192,15 +194,15 @@ const montoEnBs = montoTotalNum * 160;
           ].map((item) => (
             <View
               key={item.label}
-              className="flex-row justify-between items-center py-3 bg-gray-300 px-3 rounded-md"
+              className={`flex-row justify-between items-center py-3 ${darkMode ? "bg-gray-700" : "bg-gray-300"} px-3 rounded-md`}
             >
               <View className="flex-row items-center gap-3">
-                <Ionicons name={item.icon as any} size={22} color="#0033A0" />
+                <Ionicons name={item.icon as any} size={22} color="#2563EB" />
                 <View>
-                  <Text className="text-gray-500 font-medium">{item.label}</Text>
+                  <Text className={`${darkMode ? "text-gray-400" : "text-gray-500"} font-medium`}>{item.label}</Text>
                   <Text
                     className={`font-semibold text-lg ${
-                      item.label === "Monto a pagar" ? "text-primary" : "text-black"
+                        item.label === "Monto a pagar" ? "text-primary" : darkMode ? "text-white" : "text-black"
                     }`}
                   >
                     {item.valor}
@@ -216,9 +218,12 @@ const montoEnBs = montoTotalNum * 160;
 
         {/* Teléfono desde donde hizo el pago */}
         <View className="mt-6">
-          <Text className="font-semibold text-lg mb-2">Teléfono desde donde realizó el pago</Text>
+          <Text className={`font-semibold text-lg mb-2 ${darkMode ? "text-white" : "text-black"}`}>Teléfono desde donde realizó el pago</Text>
           <View className="flex-row items-center gap-2">
-            <View className="flex-row items-center bg-gray-300 px-1 py-2 rounded-lg">
+            <View
+              className={`flex-row items-center px-4 rounded-2xl ${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"}`}
+              style={[darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, { height: 48 }]}
+            >
               <CountryPicker
                 countryCode={country.cca2 as any}
                 withFilter
@@ -228,16 +233,19 @@ const montoEnBs = montoTotalNum * 160;
                 onSelect={onSelect}
                 visible={visible}
                 onClose={() => setVisible(false)}
+                theme={darkMode ? DARK_THEME : undefined}
               />
               <TouchableOpacity onPress={() => setVisible(true)}>
-                <Text style={{ fontSize: 16, marginRight: 5 }}>+{country.callingCode[0]}</Text>
+                <Text style={{ fontSize: 16, marginRight: 5, color: darkMode ? '#D1D5DB' : '#000' }}>+{country.callingCode[0]}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={{ flex: 1 }}>
               <TextInput
-                className="bg-gray-300 rounded-lg px-4 py-3"
+                className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+                style={[darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, { height: 48 }]}
                 placeholder="Ingresa tu número de teléfono"
+                placeholderTextColor="#9CA3AF"
                 value={telefono}
                 onChangeText={(text) => {
                   const cleaned = text.replace(/[^0-9]/g, "");
@@ -252,11 +260,11 @@ const montoEnBs = montoTotalNum * 160;
         {/* Referencia */}
         <View className="mt-4">
           <View className="flex-row items-center mb-2">
-            <Ionicons name="receipt-outline" size={24} color="#0033A0" />
-            <Text className="ml-2 font-semibold text-lg">Referencia</Text>
+            <Ionicons name="receipt-outline" size={24} color="#2563EB" />
+            <Text className={`ml-2 font-semibold text-lg ${darkMode ? "text-white" : "text-black"}`}>Referencia</Text>
           </View>
           <TextInput
-            className="rounded-lg px-4 py-3 bg-gray-300"
+            className={`rounded-lg px-4 py-3 ${darkMode ? "bg-gray-700" : "bg-gray-300"}`}
             value={referencia}
             onChangeText={setReferencia}
             placeholder="Ingrese el número de referencia"

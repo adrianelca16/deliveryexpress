@@ -1,7 +1,7 @@
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { ScrollView, Text, View, Image, TouchableOpacity } from "react-native";
 import { useState, useCallback } from "react";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import axios from "axios";
 import { API_URL, images } from "@/constants";
 import { useAuthStore } from "@/store/auth.store";
@@ -9,11 +9,16 @@ import { Plato, Restaurante } from "@/type";
 import { Ionicons, FontAwesome, Feather } from "@expo/vector-icons";
 import CarritoFlotante from "@/components/FloatingCart";
 import { useCarrito } from "@/store/useCart";
+import { useThemeStore } from '@/store/theme.store';
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Header from "@/components/ui/Header";
+import Card from "@/components/ui/Card";
 
 const RestaurantePlatos = () => {
   const { id } = useLocalSearchParams();
   const token = useAuthStore((state) => state.user?.token);
   const { carrito, agregarAlCarrito, quitarDelCarrito } = useCarrito();
+  const { darkMode } = useThemeStore();
 
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [restaurante, setRestaurante] = useState<Restaurante>();
@@ -34,8 +39,6 @@ const RestaurantePlatos = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setRestaurante(res.data);
-
-      console.log(res.data)
     } catch (err) {
       console.log("Error obteniendo platos:", err);
     } finally {
@@ -51,144 +54,176 @@ const RestaurantePlatos = () => {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <ScrollView contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
-        {/* Imagen y header */}
-        <View className="flex-row items-center px-4 py-3 bg-white justify-between ">
-          <View className="flex-row items-center">
-            <TouchableOpacity onPress={() => router.back()} className="mr-3 flex-row">
-              <Ionicons name="arrow-back" size={22} color="#003399" />
-              <Text className="text-xl font-bold text-primary">Atrás</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity onPress={() => router.push("/profile")} className="items-center mr-4">
-            <Ionicons name="notifications" size={32} color="#FF6600" />
+    <ScreenWrapper className="flex-1">
+      <Header
+        showBack
+        title={restaurante?.nombre || ""}
+        rightAction={
+          <TouchableOpacity onPress={() => router.push("/profile")}>
+            <Ionicons name="notifications" size={24} color="#2563EB" />
           </TouchableOpacity>
-        </View>
+        }
+      />
 
-        <Image
-          source={restaurante?.imagen_url ? { uri: restaurante.imagen_url } : images.avatar}
-          className="h-80 mx-4 rounded-t-2xl"
-          resizeMode="contain"
-        />
-
-        {/* Info del restaurante */}
-        <View className="mt-2 p-4">
-          <View className="flex-row justify-between items-center">
-            <Text className="text-xl font-extrabold mb-2">{restaurante?.nombre}</Text>
-            <View className="flex-row items-center gap-1">
-              <Text className="ml-1 text-xl font-bold">
+      <ScrollView contentContainerStyle={{}} showsVerticalScrollIndicator={false}>
+        {/* Imagen del restaurante */}
+        <View className="px-4 mb-4">
+          <View className="relative">
+            <Image
+              source={restaurante?.imagen_url ? { uri: restaurante.imagen_url } : images.avatar}
+              className="w-full h-56 rounded-2xl"
+              resizeMode="cover"
+            />
+            <View className="absolute top-3 right-3 flex-row items-center gap-1.5 bg-white px-3 py-1.5 rounded-full">
+              <FontAwesome name="star" size={16} color="#B8860B" />
+              <Text className="text-base font-bold" style={{ color: '#B8860B' }}>
                 {restaurante?.calificacion_promedio ?? "0.0"}
               </Text>
-              <FontAwesome name="star" size={24} color="#FF6600" />
+            </View>
+          </View>
+        </View>
+
+        {/* Info del restaurante */}
+        <View className="px-4 mb-6">
+          <View className="flex-row items-center gap-4 mb-2">
+            <View className="flex-row items-center gap-1.5 flex-1">
+              <FontAwesome name="map-marker" size={16} color="#2563EB" />
+              <Text className={`text-base font-semibold flex-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`} numberOfLines={1}>
+                {restaurante?.direccion}
+              </Text>
+            </View>
+            <View className="flex-row items-center gap-1">
+              <Feather name="clock" size={14} color="#2563EB" />
+              <Text className={`text-sm font-semibold ${darkMode ? "text-gray-300" : "text-gray-600"}`}>30-40 min</Text>
             </View>
           </View>
 
-          <View className="flex-row gap-4 justify-between items-center">
-            <View className="flex-row gap-1 items-center w-2/3">
-              <FontAwesome name="map-marker" size={24} color="#FF6600" />
-              <Text className="text-sm">{restaurante?.direccion}</Text>
-            </View>
+          {restaurante?.descripcion && (
+            <Text className={`text-base ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+              {restaurante.descripcion}
+            </Text>
+          )}
+        </View>
 
-            <View className="flex-row items-center">
-              <Feather name="clock" size={16} color="#FF6600" />
-              <Text className="ml-1 text-sm font-semibold">30-40 min</Text>
-            </View>
-          </View>
-
-          <Text className="text-base mt-2">{restaurante?.descripcion}</Text>
+        {/* Separador con título */}
+        <View className="flex-row items-center px-4 mb-4">
+          <View className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+          <Text className={`mx-4 text-sm font-semibold uppercase tracking-wider ${darkMode ? "text-gray-400" : "text-primary"}`}>
+            Menú
+          </Text>
+          <View className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
         </View>
 
         {loading ? (
-          <Text className="text-center text-gray-500">Cargando...</Text>
+          <View className="items-center py-12">
+            <Text className={`text-base ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Cargando...</Text>
+          </View>
         ) : platos.length === 0 ? (
-          <Text className="text-center text-gray-500">No hay platos disponibles</Text>
+          <View className="items-center py-12">
+            <Ionicons name="fast-food-outline" size={48} color={darkMode ? "#6B7280" : "#9CA3AF"} />
+            <Text className={`mt-3 text-base ${darkMode ? "text-gray-400" : "text-gray-500"}`}>No hay platos disponibles</Text>
+          </View>
         ) : (
-          <View className="gap-4 px-4">
-            {platos.map((p) => {
-              return (
-                <View
+          <View className="px-4 gap-4 pb-8">
+            {platos.map((p, index) => {
+              const itemEnCarrito = carrito.find((c) => c.id === p.id.toString());
+return (
+                <Animated.View
                   key={p.id}
-                  className="bg-gray-100 rounded-2xl p-4 elevation-md overflow-hidden flex-row"
+                  entering={FadeInDown.delay(index * 100).springify()}
+                  className="overflow-visible"
                 >
-                  <Image
-                    source={p.imagen ? { uri: p.imagen } : images.avatar}
-                    className="w-2/5 rounded-2xl"
-                    resizeMode="cover"
-                  />
-                  <View className="p-4 w-2/3">
-                    <Text className="text-base font-extrabold text-gray-800 mb-1">{p.nombre}</Text>
-                    <Text className="text-sm text-gray-600 mb-2">{p.descripcion}</Text>
-                    <View className="flex-row justify-between items-center">
-                      {p.precio_descuento ? (
-                        <View className="flex-row items-center gap-2">
-                          <Text className="text-base font-bold text-primary">
-                            ${p.precio_descuento}
+                  <TouchableOpacity
+                    onPress={() => router.push(`/restaurante/plato-detalle?id=${p.id}`)}
+                    activeOpacity={0.9}
+                  >
+                    <Card className="flex-row overflow-hidden p-0" style={{ elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, backgroundColor: 'white' }}>
+                      <Image
+                        source={p.imagen ? { uri: p.imagen } : images.avatar}
+                        className="w-[120px] h-full rounded-l-2xl"
+                        resizeMode="cover"
+                      />
+                      <View className="flex-1 p-4 justify-between">
+                        <View>
+                          <Text className={`text-base font-extrabold ${darkMode ? "text-gray-100" : "text-gray-900"} mb-1`}>
+                            {p.nombre}
                           </Text>
-                          <Text className="text-sm text-gray-400 line-through">
-                            ${p.precio}
+                          <Text
+                            className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"} mb-2`}
+                            numberOfLines={2}
+                          >
+                            {p.descripcion}
                           </Text>
                         </View>
-                      ) : (
-                        <Text className="text-base font-bold text-primary">
-                          ${p.precio}
-                        </Text>
-                      )}
+                        <View className="flex-row justify-between items-center">
+{p.precio_descuento ? (
+                             <View className="flex-row items-center gap-2">
+                               <Text className="text-lg font-bold" style={{ color: darkMode ? "#EAB308" : "#B8860B" }}>
+                                 ${p.precio_descuento}
+                               </Text>
+                               <Text className="text-xs text-gray-400 line-through">
+                                 ${p.precio}
+                               </Text>
+                             </View>
+                           ) : (
+                             <Text className="text-lg font-bold" style={{ color: darkMode ? "#EAB308" : "#B8860B" }}>
+                               ${p.precio}
+                             </Text>
+                           )}
 
-                      {/* Si no hay en carrito -> botón agregar */}
-                      {carrito.find((c) => c.id === p.id.toString()) ? (
-                        <View className="flex-row items-center gap-2">
-                          <TouchableOpacity
-                            onPress={() => {
-                              agregarAlCarrito({
-                                id: p.id.toString(),
-                                nombre: p.nombre,
-                                precio: p.precio,
-                                imagen: p.imagen,
-                                nombre_restaurante: restaurante?.nombre || "",
-                                descripcion : p.descripcion,
-                                precio_descuento: p.precio_descuento
-                              })
-                            }
-                            }
-                            className="border border-primary px-3 py-1 rounded-full"
-                          >
-                            <Text className="text-lg font-bold text-primary">+</Text>
-                          </TouchableOpacity>
-
-                          <Text className="text-base font-bold">
-                            {carrito.find((c) => c.id === p.id.toString())?.cantidad}
-                          </Text>
-
-                          <TouchableOpacity
-                            onPress={() => quitarDelCarrito(p.id.toString())}
-                            className="px-3 py-1 rounded-full border border-primary"
-                          >
-                            <Text className="text-lg font-bold text-primary">-</Text>
-                          </TouchableOpacity>
+                          {itemEnCarrito ? (
+                            <View className="flex-row items-center gap-2">
+                              <TouchableOpacity
+                                onPress={() => quitarDelCarrito(p.id.toString())}
+                                className="w-8 h-8 rounded-full bg-primary/10 items-center justify-center"
+                              >
+                                <Ionicons name="remove" size={18} color="#2563EB" />
+                              </TouchableOpacity>
+                              <Text className={`text-base font-bold min-w-[20px] text-center ${darkMode ? "text-white" : "text-gray-900"}`}>
+                                {itemEnCarrito.cantidad}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => {
+                                  agregarAlCarrito({
+                                    id: p.id.toString(),
+                                    nombre: p.nombre,
+                                    precio: p.precio,
+                                    imagen: p.imagen,
+                                    nombre_restaurante: restaurante?.nombre || "",
+                                    descripcion: p.descripcion,
+                                    precio_descuento: p.precio_descuento,
+                                    restauranteId: restaurante?.id || "",
+                                  })
+                                }}
+                                className="w-8 h-8 rounded-full bg-primary items-center justify-center"
+                              >
+                                <Ionicons name="add" size={18} color="white" />
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
+                            <TouchableOpacity
+                              onPress={() =>
+                                agregarAlCarrito({
+                                  id: p.id.toString(),
+                                  nombre: p.nombre,
+                                  precio: p.precio,
+                                  imagen: p.imagen,
+                                  nombre_restaurante: restaurante?.nombre || "",
+                                  precio_descuento: p.precio_descuento,
+                                  descripcion: p.descripcion,
+                                  restauranteId: restaurante?.id || "",
+                                })
+                              }
+                              className="bg-primary py-2 px-4 rounded-full shadow-lg shadow-primary/30"
+                            >
+                              <Text className="text-white text-sm font-bold">Añadir</Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
-                      ) : (
-                        <TouchableOpacity
-                          onPress={() =>
-                            agregarAlCarrito({
-                              id: p.id.toString(),
-                              nombre: p.nombre,
-                              precio: p.precio,
-                              imagen: p.imagen,
-                              nombre_restaurante: restaurante?.nombre || "",
-                              precio_descuento: p.precio_descuento,
-                              descripcion: p.descripcion
-                            })
-                          }
-                          className="bg-primary px-3 py-1 rounded-full"
-                        >
-                          <Text className="text-white">Añadir</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                </View>
+                      </View>
+                    </Card>
+                  </TouchableOpacity>
+                </Animated.View>
               );
             })}
           </View>
@@ -199,9 +234,7 @@ const RestaurantePlatos = () => {
         totalItems={carrito.reduce((acc, i) => acc + i.cantidad, 0)}
         onPress={() => router.push("/cart")}
       />
-
-
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 

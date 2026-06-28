@@ -1,29 +1,53 @@
 import { SafeAreaView } from "react-native-safe-area-context";
-import "../global.css"
-import { ScrollView, Text, View, Image, TextInput, FlatList, TouchableOpacity, ImageBackground } from "react-native";
-import { images, API_URL } from "@/constants";
+import "../global.css";
+import {
+  ScrollView,
+  Text,
+  View,
+  Image,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  ImageBackground,
+} from "react-native";
+import {
+  API_URL,
+  images,
+  getCategoryImage,
+  getCategoryColor,
+} from "@/constants";
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useAuthStore } from "@/store/auth.store";
 import { Categoria, Direccion, Restaurante } from "@/type";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { FontAwesome, Feather, FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import LocationHeader from "@/components/ui/LocationHeader";
+import { useThemeStore } from "@/store/theme.store";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 const Search = () => {
   const token = useAuthStore((state) => state.user?.token);
   const router = useRouter();
-  const { categoriaSeleccionada } = useLocalSearchParams()
+  const { categoriaSeleccionada } = useLocalSearchParams();
 
-  const [direccionPrincipal, setDireccionPrincipal] = useState<Direccion | null>(
-    null
-  );
+  const [direccionPrincipal, setDireccionPrincipal] =
+    useState<Direccion | null>(null);
 
   const [restaurantes, setRestaurantes] = useState<Restaurante[]>([]);
-  const [categoriasDisponibles, setCategoriasDisponibles] = useState<Categoria[]>([]);
+  const [categoriasDisponibles, setCategoriasDisponibles] = useState<
+    Categoria[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
-  const [filtroSeleccionado, setFiltroSeleccionado] = useState(Array.isArray(categoriaSeleccionada) ? categoriaSeleccionada[0] || "Todos" : categoriaSeleccionada || "Todos");
-  const [busqueda, setBusqueda] = useState('');
+  const [filtroSeleccionado, setFiltroSeleccionado] = useState(
+    Array.isArray(categoriaSeleccionada)
+      ? categoriaSeleccionada[0] || "Todos"
+      : categoriaSeleccionada || "Todos",
+  );
+  const [busqueda, setBusqueda] = useState("");
+
+  const { darkMode } = useThemeStore();
 
   const fetchCategorias = async () => {
     try {
@@ -32,7 +56,7 @@ const Search = () => {
       });
       setCategoriasDisponibles(res.data);
     } catch (err) {
-      console.log('Error obteniendo categorías:', err);
+      console.log("Error obteniendo categorías:", err);
     }
   };
 
@@ -68,7 +92,7 @@ const Search = () => {
       fetchCategorias();
       fetchDireccionPrincipal();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -76,18 +100,15 @@ const Search = () => {
       setFiltroSeleccionado(
         Array.isArray(categoriaSeleccionada)
           ? categoriaSeleccionada[0] || "Todos"
-          : categoriaSeleccionada || "Todos"
+          : categoriaSeleccionada || "Todos",
       );
     }
   }, [categoriaSeleccionada]);
 
-  // ✅ Filtrar por categoría + búsqueda
-  // ✅ Filtrar por categoría + búsqueda
+  // Filtrar por categoría + búsqueda
   const restaurantesFiltrados = restaurantes.filter((r) => {
     const categoriaNombre =
-      typeof r.categoria === "string"
-        ? r.categoria
-        : r.categoria?.nombre || "";
+      typeof r.categoria === "string" ? r.categoria : r.categoria?.nombre || "";
 
     const coincideCategoria =
       filtroSeleccionado === "Todos" ||
@@ -100,78 +121,112 @@ const Search = () => {
     return coincideCategoria && coincideBusqueda;
   });
 
-
-
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} style={{ marginBottom: 44 }}>
-
-        <View className="flex-row justify-between items-center bg-white rounded-2xl py-3 mb-2 mt-2">
-          <TouchableOpacity onPress={() => router.push('/(tabs)/perfil/direccion')} className="flex-row gap-2 items-center">
-            <FontAwesome5 name="map-marker-alt" size={24} color="#003399" />
-            <Text className="text-base font-semibold text-gray-900">
-              {direccionPrincipal?.direccion_texto || "Agregar dirección"}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => router.push("/profile")} className="items-center">
-            <Ionicons name="notifications" size={32} color="#FF6600" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Barra de búsqueda */}
-        <View className="flex-row items-center bg-tertiary rounded-xl pl-8 py-2 mb-4">
-          <TextInput
-            placeholder="Buscar Restaurantes..."
-            value={busqueda}
-            onChangeText={setBusqueda}
-            className="flex-1 text-base font-semibold text-gray-800"
-            placeholderTextColor="#70747a"
-          />
-          <Image source={images.search} className="w-5 h-5 mr-2" resizeMode="contain" />
-        </View>
-
-        <FlatList
-          data={categoriasDisponibles}
-          horizontal
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 8 }}
-          renderItem={({ item }) => {
-            const activo = filtroSeleccionado === item.nombre;
-            return (
-              <TouchableOpacity
-                onPress={() =>
-                  setFiltroSeleccionado(activo ? "Todos" : item.nombre)
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View className="px-5 pt-2 pb-2">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 mr-3">
+              <LocationHeader
+                direccionTexto={
+                  direccionPrincipal?.nombre ||
+                  direccionPrincipal?.direccion_texto
                 }
-                className={`px-2 items-center`}
-              >
-                <View
-                  className="mb-2 rounded-lg p-2"
-                  style={{ backgroundColor: activo ? "#FF6600" : "#666666" }}
+                onLocationPress={() => router.push("/(tabs)/perfil/direccion")}
+              />
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/profile")}
+              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color="#2563EB"
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View
+            className={`flex-row items-center mt-2 ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"} rounded-lg px-4`}
+          >
+            <Image
+              source={images.search}
+              className="w-5 h-5"
+              resizeMode="contain"
+              tintColor={darkMode ? "#9CA3AF" : "#2563EB"}
+            />
+            <TextInput
+              placeholder="Buscar Restaurantes o platos ..."
+              value={busqueda}
+              onChangeText={setBusqueda}
+              className={`flex-1 text-base font-semibold py-3.5 ${darkMode ? "text-gray-100" : "text-gray-800"}`}
+              placeholderTextColor={darkMode ? "#6B7280" : "#9CA3AF"}
+              onSubmitEditing={() =>
+                router.push({ pathname: "/search", params: { busqueda } })
+              }
+            />
+          </View>
+        </View>
+
+        {/* Categorías en círculo */}
+        {categoriasDisponibles.length > 0 && (
+          <View className="mb-3 mt-2">
+            <FlatList
+              data={categoriasDisponibles}
+              horizontal
+              keyExtractor={(item) => item.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingBottom: 12,
+                gap: 16,
+              }}
+              renderItem={({ item, index }) => (
+                <Animated.View
+                  entering={FadeInDown.delay(index * 50).duration(300)}
                 >
-                  <Image
-                    source={{ uri: item.imagen }}
-                    className="w-16 h-16 rounded-md"
-                    resizeMode="cover"
-                  />
-                </View>
-                <Text
-                  className={`text-sm font-semibold ${activo ? 'text-secondary' : ''}`}
-                >
-                  {item.nombre}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/search",
+                        params: { categoriaSeleccionada: item.nombre },
+                      })
+                    }
+                    className="items-center gap-2"
+                  >
+                    <View
+                      className="w-20 h-20 rounded-full items-center justify-center shadow-sm"
+                      style={{ backgroundColor: getCategoryColor(item.nombre) }}
+                    >
+                      <Image
+                        source={
+                          item.imagen
+                            ? { uri: item.imagen }
+                            : getCategoryImage(item.nombre)
+                        }
+                        className="w-12 h-12"
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <Text
+                      className={`text-sm font-bold ${darkMode ? "text-gray-300" : "text-gray-700"}`}
+                    >
+                      {item.nombre}
+                    </Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            />
+          </View>
+        )}
 
         {loading ? (
           <Text className="text-center text-gray-500">Cargando...</Text>
         ) : restaurantesFiltrados.length === 0 ? (
           <Text className="text-center text-gray-500">No hay restaurantes</Text>
         ) : (
-          <View className="mt-6 gap-6">
+          <View className="px-5">
             {restaurantesFiltrados.map((item) => (
               <TouchableOpacity
                 key={item.id}
@@ -202,7 +257,7 @@ const Search = () => {
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      backgroundColor: "rgba(0,0,0,0.45)", // 👈 opacidad ajustable
+                      backgroundColor: "rgba(0,0,0,0.45)",
                     }}
                   />
 
@@ -218,17 +273,27 @@ const Search = () => {
                   >
                     {/* Imagen circular */}
                     <Image
-                      source={item.imagen_url ? { uri: item.imagen_url } : images.avatar}
+                      source={
+                        item.imagen_url
+                          ? { uri: item.imagen_url }
+                          : images.avatar
+                      }
                       className="w-20 h-20 rounded-full border-2 border-white"
                       resizeMode="cover"
                     />
 
                     {/* Info central */}
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text className="text-lg font-extrabold text-white" numberOfLines={1}>
+                      <Text
+                        className="text-lg font-extrabold text-white"
+                        numberOfLines={1}
+                      >
                         {item.nombre}
                       </Text>
-                      <Text className="text-base text-white font-semibold" numberOfLines={1}>
+                      <Text
+                        className="text-base text-white font-semibold"
+                        numberOfLines={1}
+                      >
                         {typeof item.categoria === "string"
                           ? item.categoria
                           : item.categoria?.nombre}{" "}
@@ -251,7 +316,7 @@ const Search = () => {
         )}
       </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 export default Search;

@@ -73,6 +73,7 @@ interface CustomButtonProps {
     leftIcon?: React.ReactNode;
     textStyle?: string;
     isLoading?: boolean;
+    disabled?: boolean;
 }
 
 interface CustomHeaderProps {
@@ -111,7 +112,7 @@ interface GetMenuParams {
     query: string;
 }
 
-interface Role { id: string; nombre: string, icons };
+interface Role { id: string; nombre: string; descripcion: string; icons: string; };
 
 interface Estado { id: string; nombre: string, descripcion: string };
 
@@ -195,4 +196,18 @@ interface Orden {
   cliente_email?:string;
   cliente_telefono?:string;
   cliente_foto?:string;
+}
+
+interface Movimiento {
+  id: string;
+  tipo: string;
+  monto: number;
+  descripcion: string;
+  creado_en: string;
+}
+
+interface WalletData {
+  id: string;
+  saldo: number;
+  movimientos: Movimiento[];
 }

@@ -1,19 +1,26 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { API_URL, VenezuelaEstados } from "@/constants";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from '@/store/theme.store';
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import PopupMessage from "@/components/PopupMessage";
-import { Picker } from '@react-native-picker/picker';
+import ThemePicker from '@/components/ThemePicker';
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Header from "@/components/ui/Header";
+import Card from "@/components/ui/Card";
+import CustomButton from "@/components/CustomButton";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function FormularioDireccion() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const id = params.id as string | undefined;
   const token = useAuthStore((state) => state.user?.token);
+  const { darkMode } = useThemeStore();
 
   const [nombre, setNombre] = useState("");
   const [calle, setCalle] = useState("");
@@ -22,17 +29,45 @@ export default function FormularioDireccion() {
   const [longitud, setLongitud] = useState(0.0);
   const [esPredeterminada, setEsPredeterminada] = useState(false);
 
-  // 🔹 Para Estado y Municipio
   const [estado, setEstado] = useState("");
   const [municipio, setMunicipio] = useState("");
   const [estadosData, setEstadosData] = useState<{ nombre: string; municipios: string[] }[]>([]);
   const [municipiosData, setMunicipiosData] = useState<string[]>([]);
 
-  // 🔹 Si existe id, cargar la dirección
+  const justLoadedData = useRef(false);
+
+  useEffect(() => {
+    const mappedEstados = VenezuelaEstados.map(e => ({
+      nombre: e.estado,
+      municipios: e.municipios.map(m => m.municipio)
+    }));
+    setEstadosData(mappedEstados);
+  }, []);
+
+  useEffect(() => {
+    if (justLoadedData.current) {
+      const estadoEncontrado = estadosData.find(e => e.nombre === estado);
+      if (estadoEncontrado) {
+        setMunicipiosData(estadoEncontrado.municipios);
+      }
+      justLoadedData.current = false;
+    }
+  }, [estado, estadosData]);
+
   useFocusEffect(
     useCallback(() => {
-      const fetchDireccion = async () => {
-        if (id) {
+      if (!id) {
+        setNombre("");
+        setEstado("");
+        setMunicipio("");
+        setCalle("");
+        setPuntoReferencia("");
+        setLatitud(0.0);
+        setLongitud(0.0);
+        setEsPredeterminada(false);
+        setMunicipiosData([]);
+      } else {
+        const fetchDireccion = async () => {
           try {
             const response = await axios.get(`${API_URL}/api/user/direcciones/${id}/`, {
               headers: { Authorization: `Bearer ${token}` },
@@ -44,41 +79,26 @@ export default function FormularioDireccion() {
             setEstado(direccionParts[0] || "");
             setMunicipio(direccionParts[1] || "");
             setCalle(direccionParts[2] || "");
-            setPuntoReferencia(direccionParts[3] || "");
+            setPuntoReferencia(direccionParts.slice(3).join(", "));
             setLatitud(d.latitud.toString());
             setLongitud(d.longitud.toString());
             setEsPredeterminada(d.es_predeterminada);
+            justLoadedData.current = true;
           } catch (error) {
             console.error("Error al cargar dirección:", error);
           }
-        }
-      };
-      fetchDireccion();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id])
+        };
+        fetchDireccion();
+      }
+    }, [id, token])
   );
 
-  // 🔹 Cargar estados desde el JSON importado
   useEffect(() => {
-  const mappedEstados = VenezuelaEstados.map(e => ({
-    nombre: e.estado,
-    municipios: e.municipios.map(m => m.municipio)
-  }));
-  setEstadosData(mappedEstados);
-}, []);
-
-
-  // 🔹 Actualizar municipios al cambiar estado
-  useEffect(() => {
-    const estadoSeleccionado = estadosData.find(e => e.nombre === estado);
-    if (estadoSeleccionado) {
-      setMunicipiosData(estadoSeleccionado.municipios);
-      setMunicipio(""); // limpiar municipio anterior
-    } else {
-      setMunicipiosData([]);
-      setMunicipio("");
+    if (params.latitud && params.longitud) {
+      setLatitud(parseFloat(params.latitud as string));
+      setLongitud(parseFloat(params.longitud as string));
     }
-  }, [estado, estadosData]);
+  }, [params.latitud, params.longitud]);
 
   const handleSubmit = async () => {
     const direccionCompleta = `${estado}, ${municipio}, ${calle}, ${puntoReferencia}`;
@@ -124,14 +144,6 @@ export default function FormularioDireccion() {
     }
   };
 
-  const params = useLocalSearchParams();
-  useEffect(() => {
-    if (params.latitud && params.longitud) {
-      setLatitud(parseFloat(params.latitud as string));
-      setLongitud(parseFloat(params.longitud as string));
-    }
-  }, [params]);
-
   const [popup, setPopup] = useState({
     visible: false,
     message: "",
@@ -142,106 +154,117 @@ export default function FormularioDireccion() {
     setPopup({ visible: true, message, icon });
   };
 
+  const ubicacionSeleccionada = latitud && longitud;
+
   return (
-    <SafeAreaView className="flex-1 bg-white px-4 pb-6">
-      <View className="flex-row items-center px-4 py-3 bg-white justify-between">
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => router.push('/(tabs)/perfil/direccion')} className="mr-3 flex-row">
-            <Ionicons name="arrow-back" size={22} color="#003399" />
-            <Text className="text-xl font-bold text-primary">Atrás</Text>
-          </TouchableOpacity>
-        </View>
+    <ScreenWrapper>
+      <Header title={id ? "Editar Dirección" : "Nueva Dirección"} showBack onBack={() => router.push("/perfil/direccion")} />
 
-        <TouchableOpacity onPress={() => router.push("/profile")} className="items-center mr-4">
-          <Ionicons name="notifications" size={32} color="#FF6600" />
-        </TouchableOpacity>
-      </View>
+      <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 100 }}>
+        <Animated.View entering={FadeInDown.delay(100).duration(400).springify()}>
+          <Card className="mb-4">
+            <Text className="text-primary mb-2 font-bold">Nombre de la dirección</Text>
+            <TextInput
+              className={`${darkMode ? "bg-gray-800 border border-gray-600" : "bg-white border border-gray-300"} rounded-xl px-4 py-3.5 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+              value={nombre}
+              onChangeText={setNombre}
+              placeholder="Ej. Casa, Trabajo"
+              placeholderTextColor={darkMode ? "#6B7280" : "#9CA3AF"}
+            />
+          </Card>
+        </Animated.View>
 
-      <ScrollView className="flex-1 px-4">
-        {/* Nombre */}
-        <Text className="text-gray-800 mt-2 mb-1 font-bold">Nombre de la dirección</Text>
-        <TextInput
-          className="bg-gray-100 rounded-xl px-4 py-4 mb-4"
-          value={nombre}
-          onChangeText={setNombre}
-          placeholder="Ej. Casa, Trabajo"
-        />
+        <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
+          <Card className="mb-4">
+            <Text className="text-primary font-bold mb-2">Estado</Text>
+            <ThemePicker
+              selectedValue={estado}
+              onValueChange={setEstado}
+              items={estadosData.map(e => ({ label: e.nombre, value: e.nombre }))}
+              placeholder="Selecciona un estado"
+              containerStyle="mb-0"
+            />
+          </Card>
+        </Animated.View>
 
-        {/* Estado */}
-        <Text className="text-gray-800 font-bold mb-1">Estado</Text>
-        <View className="bg-gray-100 rounded-xl mb-4">
-          <Picker selectedValue={estado} onValueChange={setEstado}>
-            <Picker.Item label="Selecciona un estado" value="" />
-            {estadosData.map(e => (
-              <Picker.Item key={e.nombre} label={e.nombre} value={e.nombre} />
-            ))}
-          </Picker>
-        </View>
+        <Animated.View entering={FadeInDown.delay(300).duration(400).springify()}>
+          <Card className="mb-4">
+            <Text className="text-primary font-bold mb-2">Municipio</Text>
+            <ThemePicker
+              selectedValue={municipio}
+              onValueChange={setMunicipio}
+              items={municipiosData.map(m => ({ label: m, value: m }))}
+              placeholder="Selecciona un municipio"
+              containerStyle="mb-0"
+              disabled={municipiosData.length === 0}
+            />
+          </Card>
+        </Animated.View>
 
-        {/* Municipio */}
-        <Text className="text-gray-800 font-bold mb-1">Municipio</Text>
-        <View className="bg-gray-100 rounded-xl mb-4">
-          <Picker selectedValue={municipio} onValueChange={setMunicipio} enabled={municipiosData.length > 0}>
-            <Picker.Item label="Selecciona un municipio" value="" />
-            {municipiosData.map(m => (
-              <Picker.Item key={m} label={m} value={m} />
-            ))}
-          </Picker>
-        </View>
+        <Animated.View entering={FadeInDown.delay(400).duration(400).springify()}>
+          <Card className="mb-4">
+            <Text className="text-primary font-bold mb-2">Calle</Text>
+            <TextInput
+              className={`${darkMode ? "bg-gray-800 border border-gray-600" : "bg-white border border-gray-300"} rounded-xl px-4 py-3.5 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+              value={calle}
+              onChangeText={setCalle}
+              placeholder="Ej. Calle 123"
+              placeholderTextColor={darkMode ? "#6B7280" : "#9CA3AF"}
+            />
+          </Card>
+        </Animated.View>
 
-        {/* Calle */}
-        <Text className="text-gray-800 font-bold mb-1">Calle</Text>
-        <TextInput
-          className="bg-gray-100 rounded-xl px-4 py-4 mb-4"
-          value={calle}
-          onChangeText={setCalle}
-          placeholder="Ej. Calle 123"
-        />
+        <Animated.View entering={FadeInDown.delay(500).duration(400).springify()}>
+          <Card className="mb-4">
+            <Text className="text-primary font-bold mb-2">Punto de Referencia</Text>
+            <TextInput
+              className={`${darkMode ? "bg-gray-800 border border-gray-600" : "bg-white border border-gray-300"} rounded-xl px-4 py-3.5 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+              value={puntoReferencia}
+              onChangeText={setPuntoReferencia}
+              placeholder="Ej. La casa naranja ..."
+              placeholderTextColor={darkMode ? "#6B7280" : "#9CA3AF"}
+            />
+          </Card>
+        </Animated.View>
 
-        {/* Punto de Referencia */}
-        <Text className="text-gray-800 font-bold mb-1">Punto de Referencia</Text>
-        <TextInput
-          className="bg-gray-100 rounded-xl px-4 py-4 mb-4"
-          value={puntoReferencia}
-          onChangeText={setPuntoReferencia}
-          placeholder="Ej. La casa naranja ..."
-        />
+        <Animated.View entering={FadeInDown.delay(600).duration(400).springify()}>
+          <Card className="mb-4">
+            <View className="flex-row justify-between items-center">
+              <Text className={`${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}>¿Es predeterminada?</Text>
+              <Switch
+                value={esPredeterminada}
+                onValueChange={setEsPredeterminada}
+                trackColor={{ false: "#D9D9D9", true: "#2563EB" }}
+                thumbColor="#2563EB"
+              />
+            </View>
+          </Card>
+        </Animated.View>
 
-        {/* Predeterminada */}
-        <View className="flex-row justify-between items-center mb-6">
-          <Text className="text-gray-800 font-semibold">¿Es predeterminada?</Text>
-          <Switch value={esPredeterminada} onValueChange={setEsPredeterminada} />
-        </View>
-
-        <TouchableOpacity
-          onPress={() => router.push("/perfil/seleccionar-direccion")}
-          className="bg-gray-100 py-3 rounded-lg mb-4"
-        >
-          <Text className="text-center text-primary font-bold">
-            Seleccionar en el mapa
-          </Text>
-        </TouchableOpacity>
-
-        {/* Botón Guardar */}
-        <View className="px-6 items-center">
+        <Animated.View entering={FadeInDown.delay(700).duration(400).springify()}>
           <TouchableOpacity
-            className="bg-secondary rounded-xl py-3 mt-4 mx-6 w-3/4"
+            onPress={() => router.push("/perfil/seleccionar-direccion")}
+            className="mb-6"
+          >
+            <Card className={`items-center py-4 border-dashed border-2 ${ubicacionSeleccionada ? "border-secondary/50" : "border-primary/30 dark:border-primary/50"}`}>
+              <Ionicons name="map-outline" size={28} color={ubicacionSeleccionada ? "#B8860B" : "#2563EB"} />
+              <Text className={`font-bold text-base mt-1 ${ubicacionSeleccionada ? "text-secondary" : "text-primary"}`}>Seleccionar en el mapa</Text>
+            </Card>
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(800).duration(400).springify()} className="items-center gap-4">
+          <CustomButton
+            title={id ? "Guardar Cambios" : "Guardar Dirección"}
             onPress={handleSubmit}
-          >
-            <Text className="text-white text-center font-bold text-lg">
-              {id ? "Guardar Cambios" : "Guardar Dirección"}
-            </Text>
-          </TouchableOpacity>
+            style="bg-primary w-3/4"
+            textStyle="text-white font-bold"
+          />
 
-          <TouchableOpacity
-            className="w-3/4"
-            onPress={() => router.push('/(tabs)/perfil/direccion')}
-          >
-            <Text className="text-primary text-center font-bold text-lg mt-4">
-              Cancelar
-            </Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/perfil/direccion')} className="rounded-xl py-3 px-6 w-3/4 items-center" style={{ backgroundColor: '#B8860B' }}>
+            <Text className="text-white font-bold text-lg">Cancelar</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </ScrollView>
 
       <PopupMessage
@@ -250,6 +273,6 @@ export default function FormularioDireccion() {
         icon={popup.icon}
         onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
       />
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

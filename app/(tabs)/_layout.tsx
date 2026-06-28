@@ -1,46 +1,50 @@
-// app/_layout.tsx o app/(tabs)/_layout.tsx
 import { Tabs, Redirect } from "expo-router";
-import { Image, Text, View} from "react-native";
+import { Image, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from "@/store/theme.store";
 import { images } from "@/constants";
 import cn from "clsx";
 
-const TabBarIcon = ({ focused, icon, title }: { focused: boolean; icon: any; title: string }) => (
-  <View className="tab-icon flex justify-center items-center w-4">
-    <Image
-      source={icon}
-      className="size-7"
-      resizeMode="cover"
-      tintColor={focused ? "#FE8C00" : "#5D5F6D"}
-    />
-    <Text className={cn("text-sm font-bold", "text-gray-600")}>{title}</Text>
-  </View>
-);
+const TabBarIcon = ({ focused, icon, title }: { focused: boolean; icon: any; title: string }) => {
+  const { darkMode } = useThemeStore();
+  return (
+    <View className="tab-icon flex justify-center items-center w-4">
+      <Image
+        source={icon}
+        className="size-7"
+        resizeMode="cover"
+        tintColor={focused ? "#2563EB" : (darkMode ? "#9CA3AF" : "#5D5F6D")}
+      />
+      <Text
+        className={cn(
+          "text-sm font-bold",
+          focused ? (darkMode ? "text-gray-100" : "text-gray-800") : (darkMode ? "text-gray-400" : "text-gray-800")
+        )}
+      >
+        {title}
+      </Text>
+    </View>
+  );
+};
 
 export default function TabsLayout() {
-  const { isAuthenticated} = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
+  const { darkMode } = useThemeStore();
+  const insets = useSafeAreaInsets();
+
   if (!isAuthenticated) return <Redirect href="/sign-in" />;
 
-  // ✅ Tabs principales
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: {
-          borderTopLeftRadius: 50,
-          borderTopRightRadius: 50,
-          borderBottomLeftRadius: 50,
-          borderBottomRightRadius: 50,
-          marginHorizontal: 20,
-          height: 80,
-          position: "absolute",
-          bottom: 20,
-          backgroundColor: "white",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 5,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
+          backgroundColor: darkMode ? "#1F2937" : "white",
+          borderTopWidth: 0,
         },
       }}
     >
@@ -73,7 +77,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 🚫 Rutas ocultas */}
+      {/* Rutas ocultas */}
       <Tabs.Screen name="perfil/historial" options={{ href: null }} />
       <Tabs.Screen name="perfil/direccion" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="perfil/formulario-direccion" options={{ href: null, tabBarStyle: { display: "none" } }} />

@@ -1,18 +1,23 @@
-import { View, Text, TouchableOpacity, Image, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, Image, ScrollView, Switch } from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from "@/store/theme.store";
 import { useCallback, useState } from "react";
 import axios from "axios";
 import { API_URL } from "@/constants";
 import { Orden } from "@/type";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Header from "@/components/ui/Header";
+import Card from "@/components/ui/Card";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 
 const Profile = () => {
   const { user, logout } = useAuthStore();
+  const { darkMode, toggleDarkMode } = useThemeStore();
   const [recentOrders, setRecentOrders] = useState<Orden[]>([]);
 
   const menuItems = [
@@ -28,12 +33,11 @@ const Profile = () => {
 
       console.log('ordenes: ', res.data);
 
-      // 🔄 Ordenamos por fecha (más recientes primero)
       const sorted = res.data.sort(
         (a: Orden, b: Orden) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime()
       );
 
-      setRecentOrders(sorted.slice(0, 3)); // solo 3 últimas
+      setRecentOrders(sorted.slice(0, 3));
     } catch (err) {
       console.log("Error obteniendo órdenes:", err);
     }
@@ -42,156 +46,164 @@ const Profile = () => {
   useFocusEffect(
     useCallback(() => {
       fetchRecentOrders();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* Header */}
-      <View className="flex-row items-center px-4 py-3 bg-white justify-between ">
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => router.back()} className="mr-3 flex-row">
-            <Ionicons name="arrow-back" size={22} color="#003399" />
-            <Text className="text-xl font-bold text-primary">Atrás</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity onPress={() => router.push("/profile")} className="items-center mr-4">
-          <Ionicons name="notifications" size={32} color="#FF6600" />
+    <ScreenWrapper>
+      <Header title="Perfil" showBack rightAction={
+        <TouchableOpacity>
+          <Ionicons name="notifications" size={28} color="#2563EB" />
         </TouchableOpacity>
-      </View>
+      } />
 
-      <ScrollView className="mb-28">
-        {/* User Info */}
-        <View className="bg-white p-4 rounded-2xl flex-row justify-between">
-          <View className="items-center justify-center flex-row gap-2">
-            {user?.foto_perfil ? (
-              <Image source={{ uri: user?.foto_perfil }} className="w-24 h-24 rounded-full" />
-            ) : (
-              <Ionicons name="person" size={30} color="white" />
-            )}
+      <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+        <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="px-4 overflow-visible">
+          <Card style={{ elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6 }}>
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center flex-1 gap-3">
+                {user?.foto_perfil ? (
+                  <Image source={{ uri: user?.foto_perfil }} className="w-20 h-20 rounded-full border-2 border-blue-200" />
+                ) : (
+                  <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center">
+                    <Ionicons name="person" size={36} color="#2563EB" />
+                  </View>
+                )}
 
-            <View>
-              <Text className="text-lg font-bold mt-2">{user?.nombre || "Usuario"}</Text>
-              <Text className="text-gray-500 text-base">{user?.email}</Text>
-              <Text className="text-gray-500 text-base">{user?.telefono}</Text>
+                <View className="flex-1">
+                  <Text className={`text-lg font-bold ${darkMode ? "text-white" : "text-black"}`}>{user?.nombre || "Usuario"}</Text>
+                  <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{user?.email}</Text>
+                  <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{user?.telefono}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => router.push("/perfil/formulario-perfil")}
+                className="w-10 h-10 rounded-full items-center justify-center bg-blue-100 dark:bg-blue-900/30"
+              >
+                <MaterialCommunityIcons name="pencil" size={20} color="#2563EB" />
+              </TouchableOpacity>
             </View>
-          </View>
+          </Card>
+        </Animated.View>
 
-
-
-          <TouchableOpacity
-            onPress={() => router.push("/perfil/formulario-perfil")}
-            className="px-3 py-1 rounded-md flex-row gap-1 items-center"
-          >
-            <MaterialCommunityIcons name="pencil" size={24} color="#003399" />
-          </TouchableOpacity>
-        </View>
-
-        <View className="px-4">
-          <TouchableOpacity className="bg-secondary py-4 rounded-2xl flex-row justify-center gap-2">
+        <Animated.View entering={FadeInDown.delay(200).duration(400).springify()} className="px-4 mt-4">
+          <TouchableOpacity activeOpacity={0.8} className="flex-row items-center justify-center gap-2 rounded-2xl py-4 bg-primary">
             <AntDesign name="heart" size={24} color="white" />
-            <Text className="text-white font-extrabold text-lg">Platos Favoritos</Text>
+            <Text className="font-extrabold text-lg text-white">Platos Favoritos</Text>
+            <Ionicons name="chevron-forward" size={22} color="white" />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
-        {/* Recent Orders */}
-        <View className="px-4 mt-2">
-          <Text className="text-lg font-extrabold mb-3">Últimas Órdenes</Text>
+        <Animated.View entering={FadeInDown.delay(300).duration(400).springify()} className="px-4 mt-6 overflow-visible">
+          <Text className={`text-lg font-extrabold mb-3 text-primary`}>Últimas Órdenes</Text>
           {recentOrders.length > 0 ? (
-            <>
-              <View className="bg-gray-100 rounded-2xl elevation-lg">
-                {recentOrders.map((order) => (
-                  <TouchableOpacity key={order.id} className="flex-row justify-between p-4" onPress={() => router.push('/(tabs)/perfil/orden-detalle')}>
-                    <View>
-                      <Text className="font-bold">Pedido #{order.numero_orden}</Text>
-                      <Text className="text-sm text-gray-800"> {order.creado_en
+            recentOrders.map((order, index) => (
+              <TouchableOpacity
+                key={order.id}
+                onPress={() => router.push('/(tabs)/perfil/orden-detalle')}
+                className="mb-2"
+              >
+                <Card style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+                  <View className="flex-row justify-between items-center">
+                    <View className="flex-1">
+                      <Text className={`font-bold ${darkMode ? "text-white" : "text-black"}`}>Pedido #{order.numero_orden}</Text>
+                      <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}> {order.creado_en
                         ? format(new Date(order.creado_en), "dd/MM/yyyy HH:mm", { locale: es })
                         : "Sin fecha"}</Text>
                     </View>
                     <View className="items-end">
-                      <Text className="font-bold text-lg">${order.total}</Text>
-
-                      
-                      <Text className={`rounded-full ${
-                      order.estado_nombre === "Entregada"
-                        ? "text-green-600"
-                        : order.estado_nombre === "En camino"
-                        ? "text-yellow-600"
-                        : "text-red-600"
-                    }`}>{order.estado_nombre}</Text>
+                      <Text className="font-bold text-lg text-primary">${order.total}</Text>
+                      <Text className={`text-xs font-semibold ${
+                        order.estado_nombre === "Entregada"
+                          ? "text-green-600"
+                          : order.estado_nombre === "En camino"
+                          ? "text-yellow-600"
+                          : "text-red-600"
+                      }`}>{order.estado_nombre}</Text>
                     </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))
           ) : (
-            <View className="bg-white rounded-2xl shadow-md p-6 items-center">
-              <Text className="text-gray-600 mb-3 text-lg">Aún no tienes ninguna orden</Text>
+            <Card className="items-center py-6" style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+              <Ionicons name="file-tray-outline" size={40} color={darkMode ? '#9CA3AF' : '#9CA3AF'} />
+              <Text className={`mb-3 text-base mt-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Aún no tienes ninguna orden</Text>
               <TouchableOpacity
                 onPress={() => router.push("/search")}
-                className="bg-primary px-6 py-3 rounded-full"
+                className="bg-primary px-6 py-3 rounded-2xl shadow-lg shadow-blue-500/20"
               >
                 <Text className="text-white font-semibold text-lg">Explorar restaurantes</Text>
               </TouchableOpacity>
-            </View>
+            </Card>
           )}
-        </View>
+        </Animated.View>
 
-
-        {/* Menu Options */}
-        <View className="px-4 mt-6 gap-4 flex">
-          {menuItems.map((item, idx) => (
-            <TouchableOpacity
-              key={idx}
-              onPress={item.action}
-              className="flex-row justify-between items-center p-4 bg-primary elevation-md rounded-2xl"
-            >
-              <View className="flex-row items-center flex-1">
-                <FontAwesome5 name={item.icon as any} size={24} color="white" />
-                <View className="ml-3 flex-1">
-                  <Text className="font-extrabold text-lg text-white text-center">{item.label}</Text>
+        <View className="flex-row gap-3 mt-6 px-4">
+            {menuItems.map((item, idx) => (
+              <TouchableOpacity
+                key={idx}
+                onPress={item.action}
+                activeOpacity={0.8}
+                className="flex-1 items-center rounded-2xl py-4"
+                style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, backgroundColor: darkMode ? '#1F2937' : '#FFFFFF' }}
+              >
+                <View className="w-12 h-12 rounded-2xl items-center justify-center mb-2 bg-primary/10">
+                  <FontAwesome5 name={item.icon as any} size={24} color="#2563EB" />
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* App Info */}
-        <View className="px-4 mt-6">
-          <View className="bg-white rounded-2xl elevation-md p-4 space-y-3">
-            <View className="flex-row justify-between">
-              <Text className="text-gray-500">Versión</Text>
-              <Text>1.0.0</Text>
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-500">Centro de ayuda</Text>
-              <Ionicons name="chevron-forward" size={18} color="gray" />
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-500">Términos y condiciones</Text>
-              <Ionicons name="chevron-forward" size={18} color="gray" />
-            </View>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-500">Política de privacidad</Text>
-              <Ionicons name="chevron-forward" size={18} color="gray" />
-            </View>
+                <Text className={`font-extrabold text-sm text-center ${darkMode ? "text-white" : "text-gray-800"}`}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        </View>
 
-        {/* Logout */}
-        <View className="px-4 mt-6 mb-6 justify-center items-center">
+        <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} className="px-4 mt-6 overflow-visible">
+          <Card style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+            <View className="flex-row justify-between items-center py-1">
+              <Text className="text-gray-400">Versión</Text>
+              <Text className={`font-semibold ${darkMode ? "text-white" : "text-black"}`}>1.0.0</Text>
+            </View>
+            <View className="h-px bg-gray-200 my-3" />
+            <View className="flex-row justify-between items-center py-1">
+              <Text className="text-gray-400">Modo oscuro</Text>
+              <Switch
+                value={darkMode}
+                onValueChange={toggleDarkMode}
+                trackColor={{ false: "#D9D9D9", true: "#2563EB" }}
+                thumbColor="#2563EB"
+              />
+            </View>
+            <View className="h-px bg-gray-200 my-3" />
+            <View className="flex-row justify-between items-center py-1">
+              <Text className="text-gray-400">Centro de ayuda</Text>
+              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+            </View>
+            <View className="h-px bg-gray-200 my-3" />
+            <View className="flex-row justify-between items-center py-1">
+              <Text className="text-gray-400">Términos y condiciones</Text>
+              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+            </View>
+            <View className="h-px bg-gray-200 my-3" />
+            <View className="flex-row justify-between items-center py-1">
+              <Text className="text-gray-400">Política de privacidad</Text>
+              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+            </View>
+          </Card>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(600).duration(400).springify()} className="px-4 mt-6 items-center">
           <TouchableOpacity
             onPress={logout}
-            className="bg-white rounded-2xl elevation-md py-4 flex-row justify-center items-center border border-secondary w-3/4"
+            className="rounded-2xl py-4 flex-row justify-center items-center w-3/4"
+            activeOpacity={0.8}
+            style={{ backgroundColor: '#B8860B', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4 }}
           >
-            <Ionicons name="log-out-outline" size={20} color="red" />
-            <Text className="text-secondary font-bold ml-2 ">Cerrar Sesión</Text>
+            <Ionicons name="log-out-outline" size={20} color="white" />
+            <Text className="text-white font-bold ml-2 text-lg">Cerrar Sesión</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 };
 

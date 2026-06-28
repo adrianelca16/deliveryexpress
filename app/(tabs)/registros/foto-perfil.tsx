@@ -1,20 +1,26 @@
-import { View, Text, Dimensions, TouchableOpacity, Image } from "react-native";
+import { View, Text, TouchableOpacity, Image } from "react-native";
 import React, { useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { API_URL, images } from "@/constants";
+import { API_URL } from "@/constants";
 import * as ImagePicker from "expo-image-picker";
-import { FontAwesome6, MaterialIcons } from "@expo/vector-icons";
+import { FontAwesome6, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
 import { useAuthStore } from "@/store/auth.store";
+import { useThemeStore } from '@/store/theme.store';
 import PopupMessage from "@/components/PopupMessage";
 import ScreenLoading from "@/components/ScreenLoading";
+import ScreenWrapper from "@/components/ui/ScreenWrapper";
+import Header from "@/components/ui/Header";
+import Card from "@/components/ui/Card";
+import CustomButton from "@/components/CustomButton";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function FotoPerfil() {
   const [archivo, setArchivo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { user } = useAuthStore();
+  const { darkMode } = useThemeStore();
   const token = user?.token;
 
   const [popup, setPopup] = useState({
@@ -23,10 +29,7 @@ export default function FotoPerfil() {
     icon: "info" as keyof typeof MaterialIcons.glyphMap,
   });
 
-  const showPopup = (
-    message: string,
-    icon: keyof typeof MaterialIcons.glyphMap = "info"
-  ) => {
+  const showPopup = (message: string, icon: keyof typeof MaterialIcons.glyphMap = "info") => {
     setPopup({ visible: true, message, icon });
   };
 
@@ -54,7 +57,7 @@ export default function FotoPerfil() {
     } as any);
 
     try {
-      setIsLoading(true); // Solo mostrar pantalla de carga
+      setIsLoading(true);
 
       const res = await axios.patch(
         `${API_URL}/api/user/usuario/${user?.$id}/`,
@@ -92,71 +95,62 @@ export default function FotoPerfil() {
     }
   };
 
-  // 🔹 Render principal
   if (isLoading) {
-    return <ScreenLoading />; // Solo mostrar pantalla de carga
+    return <ScreenLoading />;
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View
-        className="w-full relative"
-        style={{ height: Dimensions.get("screen").height / 14 }}
-      >
-        <View className="absolute top-8 left-5 z-10 flex-row items-center">
-          <TouchableOpacity
-            className="flex-row items-center"
-            onPress={() => router.push("/registros/confirmacion-cedula")}
-          >
-            <Image
-              source={images.arrowBack}
-              style={{ tintColor: "#003399", width: 20, height: 20 }}
-            />
-            <Text className="text-xl text-primary ml-2 font-bold">Atrás</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <ScreenWrapper gradient>
+      <Header title="Selfie" showBack />
 
-      <Text className="text-center font-bold text-3xl text-secondary mt-6">
-        ¡Una última cosa!
-      </Text>
-      <Text className="font-semibold text-xl mt-3 w-3/5 self-center text-center">
-        Queremos verificar que seas tú... ¡así que tómate tu mejor selfie!
-      </Text>
+      <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="items-center px-4">
+        <Text className="text-center font-bold text-3xl text-secondary mt-2">
+          ¡Una última cosa!
+        </Text>
+        <Text className={`font-semibold text-base mt-2 text-center px-4 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+          Queremos verificar que seas tú... ¡así que tómate tu mejor selfie!
+        </Text>
+      </Animated.View>
 
-      <View className="justify-center items-center px-4 mt-4">
+      <Animated.View entering={FadeInDown.delay(200).duration(400).springify()} className="items-center px-4 mt-6">
         {archivo ? (
-          <Image
-            source={{ uri: archivo }}
-            className="w-64 h-64 rounded-2xl"
-            resizeMode="cover"
-          />
+          <View className="relative">
+            <Image
+              source={{ uri: archivo }}
+              className="w-56 h-56 rounded-2xl border-2 border-purple-200"
+              resizeMode="cover"
+            />
+            <TouchableOpacity
+              onPress={() => setArchivo(null)}
+              className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-red-500 items-center justify-center"
+            >
+              <Ionicons name="close" size={18} color="white" />
+            </TouchableOpacity>
+          </View>
         ) : (
-          <Image
-            source={images.hamburguesa_detective}
-            className="w-64 h-64"
-            resizeMode="contain"
-          />
+          <View className="w-56 h-56 rounded-2xl bg-gray-100 dark:bg-gray-800 items-center justify-center">
+            <Ionicons name="camera-outline" size={60} color={darkMode ? '#9CA3AF' : '#9CA3AF'} />
+          </View>
         )}
-      </View>
+      </Animated.View>
 
-      <TouchableOpacity
-        className="mt-8 bg-primary w-3/5 rounded-xl self-center items-center p-4 gap-2"
-        onPress={tomarFoto}
-      >
-        <FontAwesome6 name="camera" size={72} color="white" />
-        <Text className="text-white font-bold text-xl">Toma una selfie</Text>
-      </TouchableOpacity>
+      <Animated.View entering={FadeInDown.delay(300).duration(400).springify()} className="px-4 mt-6 gap-3">
+        <TouchableOpacity onPress={tomarFoto} activeOpacity={0.8}>
+          <Card className="items-center py-6">
+            <View className="w-16 h-16 rounded-2xl bg-primary/10 items-center justify-center mb-3">
+              <FontAwesome6 name="camera" size={32} color="#2563EB" />
+            </View>
+            <Text className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>Toma una selfie</Text>
+          </Card>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        className={`mt-8 rounded-xl self-center items-center p-4 ${
-          archivo ? "bg-secondary" : "bg-gray-400"
-        }`}
-        onPress={submit}
-        disabled={!archivo}
-      >
-        <Text className="text-white font-bold text-xl">Enviar foto</Text>
-      </TouchableOpacity>
+        <CustomButton
+          title="Enviar foto"
+          onPress={submit}
+          disabled={!archivo}
+          style={archivo ? 'bg-secondary' : 'bg-gray-300'}
+        />
+      </Animated.View>
 
       <PopupMessage
         visible={popup.visible}
@@ -164,6 +158,6 @@ export default function FotoPerfil() {
         icon={popup.icon}
         onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
       />
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

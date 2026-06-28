@@ -1,21 +1,22 @@
-// app/role-select.tsx
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import axios from 'axios';
 import { Role } from '@/type';
-import { API_URL, images } from '@/constants';
+import { API_URL } from '@/constants';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLoading from '@/components/ScreenLoading';
+import RoleCard from '@/components/RoleCard';
 
 export default function RoleSelectScreen() {
   const setRole = useAuthStore((state) => state.setRole);
-
+  const { darkMode } = useThemeStore();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // 👇 Animación de opacidad para el titileo
 
   useEffect(() => {
     const fetchRoles = async () => {
@@ -25,13 +26,10 @@ export default function RoleSelectScreen() {
       } catch (err) {
         console.log("Error cargando roles:", err);
       } finally {
-        // ⏳ Delay artificial de 3 segundos antes de ocultar el loading
         setTimeout(() => setLoading(false), 500);
       }
     };
-
     fetchRoles();
-
   }, []);
 
   const handleSelect = (roleId: string) => {
@@ -40,39 +38,53 @@ export default function RoleSelectScreen() {
   };
 
   if (loading) {
-    // Pantalla splash con imagen que titilea
-    return (
-      <ScreenLoading />
-    );
+    return <ScreenLoading />;
   }
 
   return (
-    <View className="flex-1 bg-white">
-      <Image
-        source={images.carga}
-        className="w-full h-96 rounded-b-3xl"
-        resizeMode="cover"
-      />
+    <View className={`flex-1 ${darkMode ? 'bg-gray-900' : 'bg-[#FAFAF8]'}`}>
+      <SafeAreaView className="flex-1">
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 justify-center px-6 py-12">
+            <Animated.View entering={FadeInDown.delay(100).duration(600)} className="items-center mb-8">
+              <View
+                className={`w-20 h-20 rounded-full items-center justify-center mb-5 ${darkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}
+              >
+                <Ionicons name="leaf" size={36} color="#2563EB" />
+              </View>
+              <Text
+                className={`text-2xl font-light tracking-widest uppercase ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}
+              >
+                EnRuta
+              </Text>
+            </Animated.View>
 
-      <View className="flex-1 items-center px-5 pt-10">
-        <Text className="text-3xl font-extrabold mb-8 text-secondary">¡Cuéntanos de ti!</Text>
-        
-        {roles.map((role) => (
-          <TouchableOpacity
-            key={role.id}
-            onPress={() => handleSelect(role.id)}
-            className="bg-primary flex-row items-center p-4 rounded-lg w-2/3 mb-4"
-          >
-             <Ionicons name={role.icons} size={22} color="white" />
+            <Animated.View entering={FadeInDown.delay(200).duration(600)} className="items-center mb-10">
+              <Text className={`text-base text-center max-w-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Elige cómo quieres utilizar nuestra plataforma.
+              </Text>
+            </Animated.View>
 
-            {/* 👇 Texto centrado */}
-            <Text className="flex-1 text-center text-white text-2xl font-bold">
-              Soy {role.nombre}
-            </Text>
-          </TouchableOpacity>
-
-        ))}
-      </View>
+            <View className="gap-6">
+              {roles.map((role, index) => (
+                <RoleCard
+                  key={role.id}
+                  roleName={role.nombre}
+                  description={role.descripcion}
+                  iconName={role.icons || undefined}
+                  onPress={() => handleSelect(role.id)}
+                  delay={300 + index * 120}
+                  darkMode={darkMode}
+                />
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }
