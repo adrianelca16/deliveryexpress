@@ -8,6 +8,7 @@ import { useThemeStore } from '@/store/theme.store';
 import { API_URL, images } from '@/constants';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TabBarIcon = ({ focused, icon, title }: TabBarIconProps) => {
     const { darkMode } = useThemeStore();
@@ -27,6 +28,8 @@ export default function ComercioLayout() {
   const [loading, setLoading] = useState(true);
   const [debeRegistrar, setDebeRegistrar] = useState(false);
   const pathname = usePathname();
+
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const verificar = async () => {
@@ -87,28 +90,17 @@ if (debeRegistrar && !estaEnRegistro && !estaEnSeleccionDireccion) {
           />
         )}
         <View className={`flex-1 ${darkMode ? "bg-gray-900" : "bg-white"}`}>
-          <Tabs screenOptions={{
-            headerShown: false,
-            tabBarShowLabel: false,
-            tabBarStyle: {
-              borderTopLeftRadius: 50,
-              borderTopRightRadius: 50,
-              borderBottomLeftRadius: 50,
-              borderBottomRightRadius: 50,
-              marginHorizontal: 20,
-              height: 80,
-              position: 'absolute',
-              bottom: 20,
-              backgroundColor: darkMode ? '#1F2937' : 'white',
-              borderTopWidth: 0,
-              borderColor: 'transparent',
-              shadowColor: darkMode ? '#000' : '#2563EB',
-              shadowOffset: { width: 0, height: darkMode ? 0 : 2 },
-              shadowOpacity: darkMode ? 0 : 0.1,
-              shadowRadius: darkMode ? 0 : 4,
-              elevation: darkMode ? 0 : 5,
-            }
-          }}>
+          <Tabs 
+            screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
+          backgroundColor: darkMode ? "#1F2937" : "white",
+          borderTopWidth: 0,
+        },
+      }}>
             <Tabs.Screen
                 name='index'
                 options={{

@@ -27,41 +27,37 @@ export default function Header({
 }: HeaderProps) {
   const { darkMode } = useThemeStore();
 
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (backHref) {
+      router.push(backHref as any);
+    } else if (router.canGoBack()) {
+      router.back();
+    }
+  };
+
   const content = (
-      <View className={`flex-row items-center justify-between px-5 py-4 ${className}`}>
-        {leftAction ? (
-          <View className="flex-1 mr-3">{leftAction}</View>
-        ) : (
-          <View className="w-10">
-            {showBack && (
-              <TouchableOpacity
-                onPress={() => {
-                  if (onBack) {
-                    onBack();
-                  } else if (backHref) {
-                    router.push(backHref as any);
-                  } else if (router.canGoBack()) {
-                    router.back();
-                  }
-                }}
-                className="w-10 h-10 rounded-full items-center justify-center"
-                style={{
-                  backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(37,99,235,0.1)',
-                }}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={22}
-                  color={darkMode ? '#F9FAFB' : '#2563EB'}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+    <View className={`flex-row items-center justify-between px-5 pt-2 ${className}`}>
+      {leftAction ? (
+        <View className="flex-1 mr-3">{leftAction}</View>
+      ) : (
+        <View className="w-10">
+          {showBack && (
+            <TouchableOpacity onPress={handleBack}>
+              <Ionicons
+                name="chevron-back"
+                size={28}
+                color={darkMode ? '#F9FAFB' : '#2563EB'}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {title && (
         <Text
-          className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-primary'}`}
+          className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-primary'}`}
         >
           {title}
         </Text>

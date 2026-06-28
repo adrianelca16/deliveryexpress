@@ -78,17 +78,17 @@ export default function ComercioHome() {
   );
 
   return (
-    <ScreenWrapper gradient>
-      <Header title="Inicio" showBack={false} gradient />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+    <ScreenWrapper>
+      <Header title="Inicio" showBack={false}/>
+      <ScrollView showsVerticalScrollIndicator={false} className='px-5'>
         <Animated.View entering={FadeInDown.delay(100).duration(400)} className="flex-row justify-between mt-4">
-          <Card className="flex-1 mr-2 items-center">
+          <Card className="flex-1 mr-2 items-center " style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
             <Text className={`text-sm font-bold text-center ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Pedidos en curso</Text>
             <Text className="text-3xl font-bold text-primary mt-2">{ordenes.length}</Text>
           </Card>
-          <Card className="flex-1 ml-2 items-center">
+          <Card className="flex-1 ml-2 items-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
             <Text className={`text-sm font-bold text-center ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Ingresos del día</Text>
-            <Text className="text-3xl font-bold text-primary mt-2">${ingresosDia}</Text>
+            <Text className="text-3xl font-bold text-secondary mt-2">${ingresosDia}</Text>
           </Card>
         </Animated.View>
 
@@ -97,7 +97,7 @@ export default function ComercioHome() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-          <Card className="mt-3">
+          <Card className="mt-3" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
             <Text className={`font-bold text-lg ${darkMode ? "text-white" : "text-gray-900"}`}>Ventas semanales</Text>
             <Text className="text-2xl font-bold text-primary mt-1">${totalVentasSemana}</Text>
 
@@ -140,7 +140,7 @@ export default function ComercioHome() {
         <View className='mb-4 mt-2'>
           {ordenes.length === 0 ? (
             <Animated.View entering={FadeInDown.delay(500).duration(400)}>
-              <Card>
+              <Card >
                 <Text className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}>No tienes pedidos pendientes.</Text>
               </Card>
             </Animated.View>
@@ -154,7 +154,7 @@ export default function ComercioHome() {
                       params: { id: orden.id }
                     })
                   }>
-                  <Card className="flex-row items-center">
+                  <Card className="flex-row items-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
                     <View className="mr-4 w-12 h-12 rounded-2xl items-center justify-center" style={{ backgroundColor: 'rgba(124,58,237,0.1)' }}>
                       <Bell size={24} color="#2563EB" />
                     </View>

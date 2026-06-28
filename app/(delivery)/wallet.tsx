@@ -43,7 +43,7 @@ export default function Wallet() {
   const envios = movimientos.filter((m) => m.tipo === "ingreso").length;
 
   return (
-    <ScreenWrapper gradient>
+    <ScreenWrapper >
       <Header title="Wallet" />
 
       {loading ? (
@@ -54,7 +54,7 @@ export default function Wallet() {
         <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
           <View className="flex-row justify-between items-center px-4 py-2 mt-2 gap-3">
             <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="flex-1">
-              <Card>
+              <Card style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
                 <View className="flex-row items-center justify-between">
                   <View>
                     <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Saldo disponible</Text>
@@ -68,13 +68,13 @@ export default function Wallet() {
             </Animated.View>
 
             <Animated.View entering={FadeInDown.delay(200).duration(400).springify()} className="flex-1">
-              <Card>
+              <Card style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
                 <View className="flex-row items-center justify-between">
                   <View>
                     <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Envíos</Text>
                     <Text className="text-2xl font-bold text-primary mt-1">{envios}</Text>
                   </View>
-                  <View className="w-10 h-10 rounded-2xl bg-purple-100 items-center justify-center">
+                  <View className="w-10 h-10 rounded-2xl bg-blue-100 items-center justify-center">
                     <Feather name="trending-up" size={20} color="#2563EB" />
                   </View>
                 </View>
@@ -96,7 +96,7 @@ export default function Wallet() {
             ) : (
               movimientos.map((tx, index) => (
                 <Animated.View key={tx.id} entering={FadeInDown.delay(200 + index * 80).duration(400).springify()}>
-                  <Card className="mb-3">
+                  <Card className="mb-3" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
                     <View className="flex-row justify-between items-center">
                       <View className="flex-1">
                         <Text className={`font-semibold capitalize ${darkMode ? "text-gray-100" : "text-gray-800"}`}>{tx.tipo}</Text>
@@ -125,7 +125,7 @@ export default function Wallet() {
               </TouchableOpacity>
             </View>
 
-            <Card className="mt-6">
+            <Card className="mt-6" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
               <View className="flex-row justify-between items-center">
                 <Text className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Modo oscuro</Text>
                 <Switch

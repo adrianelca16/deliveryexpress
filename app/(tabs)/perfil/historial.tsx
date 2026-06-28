@@ -41,12 +41,8 @@ export default function HistorialOrdenes() {
   );
 
   return (
-    <ScreenWrapper gradient>
-      <Header title="Historial de Órdenes" showBack onBack={() => router.push("/(tabs)/profile")} rightAction={
-        <TouchableOpacity onPress={() => router.push("/profile")}>
-          <Ionicons name="notifications" size={28} color="#65A30D" />
-        </TouchableOpacity>
-      } />
+    <ScreenWrapper >
+      <Header title="Historial de Órdenes" showBack onBack={() => router.push("/(tabs)/profile")} />
 
       {loading ? (
         <View className="flex-1 items-center justify-center">

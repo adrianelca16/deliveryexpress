@@ -32,14 +32,13 @@ export default function TimePickerInput({ label, value, onChange }: TimePickerIn
     hidePicker();
   };
 
-  const containerClass = `${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5`;
+  const containerClass = `${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5`;
 
   return (
     <View className="w-full mb-4">
-      <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>{label}</Text>
+      <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>{label}</Text>
       <TouchableOpacity
         className={`flex-row items-center justify-between ${containerClass}`}
-        style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
         onPress={showPicker}
       >
         <Text className={`font-semibold ${value ? (darkMode ? "text-gray-100" : "text-gray-800") : (darkMode ? "text-gray-500" : "text-gray-400")}`}>

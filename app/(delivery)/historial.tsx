@@ -62,17 +62,17 @@ export default function Historial() {
   };
 
   return (
-    <ScreenWrapper gradient>
+    <ScreenWrapper>
       <Header title="Historial" showBack backHref="/(delivery)" rightAction={
-        <TouchableOpacity onPress={() => router.push("/profile")}>
-          <Ionicons name="notifications" size={28} color="#65A30D" />
+        <TouchableOpacity
+          onPress={() => router.push("/profile")}
+          className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
+        >
+          <Ionicons name="notifications-outline" size={24} color="#2563EB" />
         </TouchableOpacity>
       } />
 
-      <ScrollView className="px-4 mt-2" contentContainerStyle={{ paddingBottom: 100 }}>
-        <Text className="text-center font-extrabold text-secondary text-xl mb-5">
-          Historial de Órdenes
-        </Text>
+      <ScrollView className="px-4 mt-3">
 
         {ordenes.length === 0 ? (
           <Animated.View entering={FadeInDown.duration(400).springify()}>

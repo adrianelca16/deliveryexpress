@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
 import { API_URL } from "@/constants";
 import { useAuthStore } from "@/store/auth.store";
@@ -190,17 +190,14 @@ export default function FormularioOpciones() {
   );
 
   return (
-    <ScreenWrapper gradient>
-      <Header title="Opciones del Plato" showBack gradient />
+    <ScreenWrapper >
+      <Header title="Opciones del Plato" showBack  className="mb-3"/>
 
-      <ScrollView className="px-6" contentContainerStyle={{ paddingBottom: 120 }}>
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} className="mb-2">
-          <Text className="text-lg font-bold text-secondary text-center">Configurar Opciones del Plato</Text>
-        </Animated.View>
+      <ScrollView className="px-6">
 
         {tipos.map((tipo, i) => (
           <Animated.View key={`tipo-${i}`} entering={FadeInDown.delay(150 + i * 60).duration(400)}>
-            <Card className="mb-6">
+            <Card className="mb-6" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="font-bold text-lg text-primary">Tipo #{i + 1}</Text>
                 <TouchableOpacity className="w-8 h-8 rounded-full items-center justify-center bg-red-50" onPress={() => handleRemoveTipo(i, tipo.id)}>

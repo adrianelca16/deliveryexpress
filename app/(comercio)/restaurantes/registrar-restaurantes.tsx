@@ -23,7 +23,6 @@ import type { ImagePickerAsset } from 'expo-image-picker';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import CountryPicker, { DARK_THEME } from 'react-native-country-picker-modal';
 import ScreenWrapper from '@/components/ui/ScreenWrapper';
-import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
 
 interface Categoria {
@@ -229,10 +228,10 @@ export default function RegistrarRestaurante() {
   }, [params]);
 
   return (
-    <ScreenWrapper gradient>
-      <Header title={restauranteId ? "Editar Restaurante" : "Registrar Restaurante"} showBack backHref="/(comercio)" gradient />
+    <ScreenWrapper>
+      <Header title={restauranteId ? "Editar Restaurante" : "Registrar Restaurante"} showBack backHref="/(comercio)" className='mb-3' />
 
-      <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 120 }} overScrollMode="never">
+      <ScrollView className="flex-1 px-5" overScrollMode="never">
         {imagen && (
           <Animated.View entering={FadeInDown.delay(100).duration(400)} className="items-center mt-2">
             <Image className="w-28 h-28 rounded-3xl" source={{ uri: imagen.uri }} />
@@ -250,10 +249,9 @@ export default function RegistrarRestaurante() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Nombre del Restaurante</Text>
+          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Nombre del Restaurante</Text>
           <TextInput
-            className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
-            style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            className={`${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
             value={nombre}
             onChangeText={setNombre}
             placeholder="Nombre de tu restaurante"
@@ -262,10 +260,9 @@ export default function RegistrarRestaurante() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Descripción</Text>
+          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Descripción</Text>
           <TextInput
-            className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
-            style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            className={`${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
             value={descripcion}
             onChangeText={setDescripcion}
             multiline
@@ -275,10 +272,9 @@ export default function RegistrarRestaurante() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(250).duration(400)}>
-          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Dirección</Text>
+          <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Dirección</Text>
           <TextInput
-            className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
-            style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            className={`${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5 mb-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
             value={direccion}
             onChangeText={setDireccion}
             placeholder="Dirección del restaurante"
@@ -311,7 +307,7 @@ export default function RegistrarRestaurante() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(400).duration(400)}>
-          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Estado</Text>
+          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-primary"}`}>Estado</Text>
           <ThemePicker
             selectedValue={estado}
             onValueChange={(itemValue) => setEstado(itemValue)}
@@ -324,7 +320,7 @@ export default function RegistrarRestaurante() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(450).duration(400)}>
-          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Categoría</Text>
+          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-primary"}`}>Categoría</Text>
           <ThemePicker
             selectedValue={categoria}
             onValueChange={(itemValue) => setCategoria(itemValue)}
@@ -337,11 +333,11 @@ export default function RegistrarRestaurante() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(500).duration(400)}>
-          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Teléfono</Text>
+          <Text className={`font-semibold mb-2 mt-2 ${darkMode ? "text-white" : "text-primary"}`}>Teléfono</Text>
           <View className="flex-row items-center gap-2 mb-4">
             <View
-              className={`flex-row items-center ${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4`}
-              style={[darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, { height: 48 }]}
+              className={`flex-row items-center ${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4`}
+              style={[{ height: 48 }]}
             >
               <CountryPicker
                 countryCode={country.cca2 as any}
@@ -368,8 +364,8 @@ export default function RegistrarRestaurante() {
                 }}
                 keyboardType="phone-pad"
                 placeholderTextColor="#9CA3AF"
-                className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
-                style={[darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, { height: 48 }]}
+                className={`${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4 ${darkMode ? "text-gray-100" : "text-gray-800"} font-semibold`}
+                style={[{ height: 48 }]}
               />
             </View>
           </View>

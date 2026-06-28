@@ -5,6 +5,7 @@ import { TabBarIconProps } from "@/type";
 import cn from "clsx";
 import { Redirect, Tabs } from "expo-router";
 import { Image, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TabBarIcon = ({ focused, icon, title }: TabBarIconProps) => {
     const { darkMode } = useThemeStore();
@@ -21,30 +22,19 @@ export default function TabsLayout() {
 
     const { darkMode } = useThemeStore();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const insets = useSafeAreaInsets();
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />
     return (
         <Tabs screenOptions={{
             headerShown: false,
-            tabBarShowLabel: false,
-            tabBarStyle: {
-                borderTopLeftRadius: 50,
-                borderTopRightRadius: 50,
-                borderBottomLeftRadius: 50,
-                borderBottomRightRadius: 50,
-                marginHorizontal: 20,
-                height: 80,
-                position: 'absolute',
-                bottom: 20,
-                backgroundColor: darkMode ? '#1F2937' : 'white',
-                borderTopWidth: 0,
-                borderColor: 'transparent',
-                shadowColor: darkMode ? '#000' : '#2563EB',
-                shadowOffset: { width: 0, height: darkMode ? 0 : 2 },
-                shadowOpacity: darkMode ? 0 : 0.1,
-                shadowRadius: darkMode ? 0 : 4,
-                elevation: darkMode ? 0 : 5
-            }
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
+          backgroundColor: darkMode ? "#1F2937" : "white",
+          borderTopWidth: 0,
+        }
         }}>
             <Tabs.Screen
                 name='index'

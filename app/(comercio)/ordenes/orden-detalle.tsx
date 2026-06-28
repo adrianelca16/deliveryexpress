@@ -5,7 +5,7 @@ import axios from 'axios';
 import { API_URL } from '@/constants';
 import { useAuthStore } from '@/store/auth.store';
 import { useThemeStore } from '@/store/theme.store';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams} from 'expo-router';
 import { Estado, Orden } from '@/type';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from "expo-clipboard";
@@ -17,7 +17,6 @@ export default function OrdenDetalle() {
   const { id } = useLocalSearchParams();
   const token = useAuthStore((state) => state.user?.token);
   const { darkMode } = useThemeStore();
-  const router = useRouter();
 
   const [orden, setOrden] = useState<Orden>();
   const [loading, setLoading] = useState(false);
@@ -112,8 +111,8 @@ export default function OrdenDetalle() {
   }
 
   return (
-    <ScreenWrapper gradient>
-      <Header title="Detalle de Orden" showBack backHref="/(comercio)/ordenes" gradient />
+    <ScreenWrapper >
+      <Header title="Detalle de Orden" showBack backHref="/(comercio)/ordenes" />
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>

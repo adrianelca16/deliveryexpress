@@ -110,7 +110,7 @@ export default function Index() {
   }
 
   return (
-    <ScreenWrapper className="bg-white">
+    <ScreenWrapper>
       <ScrollView
         showsVerticalScrollIndicator={false}
       >

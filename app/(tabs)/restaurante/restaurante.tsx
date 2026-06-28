@@ -59,10 +59,12 @@ const RestaurantePlatos = () => {
         showBack
         title={restaurante?.nombre || ""}
         rightAction={
-          <TouchableOpacity onPress={() => router.push("/profile")}>
-            <Ionicons name="notifications" size={24} color="#2563EB" />
+          <TouchableOpacity onPress={() => router.push("/profile")} className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center">
+                        <Ionicons name="notifications-outline" size={24} color="#2563EB" />
           </TouchableOpacity>
         }
+
+        className="mb-3"
       />
 
       <ScrollView contentContainerStyle={{}} showsVerticalScrollIndicator={false}>

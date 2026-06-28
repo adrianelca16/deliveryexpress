@@ -158,7 +158,7 @@ export default function FormularioDireccion() {
 
   return (
     <ScreenWrapper>
-      <Header title={id ? "Editar Dirección" : "Nueva Dirección"} showBack onBack={() => router.push("/perfil/direccion")} />
+      <Header className="mb-3" title={id ? "Editar Dirección" : "Nueva Dirección"} showBack onBack={() => router.push("/perfil/direccion")} />
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 100 }}>
         <Animated.View entering={FadeInDown.delay(100).duration(400).springify()}>

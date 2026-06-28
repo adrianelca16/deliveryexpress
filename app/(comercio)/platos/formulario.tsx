@@ -149,19 +149,17 @@ export default function FormularioPlato() {
     };
 
     return (
-        <ScreenWrapper gradient>
-            <Header title={id ? "Editar Plato" : "Crear Plato"} showBack backHref="/(comercio)/platos" gradient />
+        <ScreenWrapper>
+            <Header className='mb-4' title={id ? "Editar Plato" : "Crear Plato"} showBack backHref="/(comercio)/platos" />
 
             <ScrollView
                 className="flex-1 px-6"
-                contentContainerStyle={{ paddingBottom: 120 }}
                 showsVerticalScrollIndicator={false}
             >
                 <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Nombre del plato</Text>
+                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Nombre del plato</Text>
                     <TextInput
-                        className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-5 ${darkMode ? "text-white" : "text-gray-900"}`}
-                        style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+                        className={`${darkMode ? "bg-gray-800 border-gray-300" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5 mb-5 ${darkMode ? "text-white" : "text-gray-900"}`}
                         value={nombre}
                         onChangeText={setNombre}
                         placeholder="Ej. Pizza Hawaiana"
@@ -170,10 +168,9 @@ export default function FormularioPlato() {
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Descripción</Text>
+                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Descripción</Text>
                     <TextInput
-                        className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-5 h-28 ${darkMode ? "text-white" : "text-gray-900"}`}
-                        style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+                        className={`${darkMode ? "bg-gray-800 border-gray-300" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5 mb-5 h-28 ${darkMode ? "text-white" : "text-gray-900"}`}
                         value={desc}
                         onChangeText={setDesc}
                         multiline
@@ -183,10 +180,9 @@ export default function FormularioPlato() {
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Precio</Text>
+                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Precio</Text>
                     <TextInput
-                        className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-5 ${darkMode ? "text-white" : "text-gray-900"}`}
-                        style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+                        className={`${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5 mb-5 ${darkMode ? "text-white" : "text-gray-900"}`}
                         value={precio}
                         onChangeText={setPrecio}
                         placeholder="10.00"
@@ -196,10 +192,9 @@ export default function FormularioPlato() {
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(250).duration(400)}>
-                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Descuento</Text>
+                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Descuento</Text>
                     <TextInput
-                        className={`${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"} rounded-2xl px-4 py-3.5 mb-5 ${darkMode ? "text-white" : "text-gray-900"}`}
-                        style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+                        className={`${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5 mb-5 ${darkMode ? "text-white" : "text-gray-900"}`}
                         value={precioDescuento}
                         onChangeText={setPrecioDescuento}
                         placeholder="0.00"
@@ -209,7 +204,7 @@ export default function FormularioPlato() {
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>Estado</Text>
+                    <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Estado</Text>
                     <ThemePicker
                         selectedValue={disponible === null ? '' : disponible ? 'true' : 'false'}
                         onValueChange={(value) => setDisponible(value === '' ? null : value === 'true')}

@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Image, useWindowDimensions, Modal, FlatList } from "react-native";
-import React, { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
 import { Plato, Restaurante } from "@/type";
@@ -7,7 +7,6 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import axios from "axios";
 import { API_URL } from "@/constants";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCarrito } from "@/store/useCart";
 import { useThemeStore } from '@/store/theme.store';
@@ -105,10 +104,6 @@ export default function PlatoDetalle() {
   };
 
   const handleAddToCart = () => {
-    const extrasSeleccionados = tiposOpciones.flatMap((tipo) => {
-      const seleccionadas = selecciones[tipo.id] || [];
-      return tipo.opciones.filter((op: any) => seleccionadas.includes(op.id));
-    });
 
     agregarAlCarrito({
       id: plato?.id?.toString() ?? "",

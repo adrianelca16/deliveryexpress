@@ -97,18 +97,17 @@ export default function FormularioPerfil() {
   };
 
   const inputClass = `${darkMode ? 'bg-gray-800 border border-gray-700 text-gray-100' : 'bg-white border border-purple-100/50 text-gray-800'} rounded-2xl px-4 py-3.5 font-semibold`;
-  const inputStyle = darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 };
 
   return (
-    <ScreenWrapper gradient>
+    <ScreenWrapper>
       <Header title="Editar Perfil" showBack onBack={() => router.push("/(tabs)/profile")} />
 
-      <ScrollView className="px-4 mt-2" contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView className="px-4 mt-2">
         <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="items-center mb-6">
           {fotoPerfil ? (
-            <Image source={{ uri: fotoPerfil.uri }} className="w-28 h-28 rounded-full border-2 border-purple-200" />
+            <Image source={{ uri: fotoPerfil.uri }} className="w-28 h-28 rounded-full border-2 border-blue-200" />
           ) : fotoRemota ? (
-            <Image source={{ uri: fotoRemota }} className="w-28 h-28 rounded-full border-2 border-purple-200" />
+            <Image source={{ uri: fotoRemota }} className="w-28 h-28 rounded-full border-2 border-blue-200" />
           ) : (
             <View className="w-28 h-28 rounded-full bg-primary/10 items-center justify-center">
               <Ionicons name="person" size={48} color="#2563EB" />
@@ -116,7 +115,7 @@ export default function FormularioPerfil() {
           )}
 
           <TouchableOpacity
-            className="mt-3 flex-row items-center gap-2 bg-purple-100 px-5 py-2 rounded-full"
+            className="mt-3 flex-row items-center gap-2 bg-blue-100 px-5 py-2 rounded-full"
             onPress={pickImage}
           >
             <Entypo name="camera" size={20} color="#2563EB" />
@@ -126,10 +125,9 @@ export default function FormularioPerfil() {
 
         <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
           <Card className="mb-4">
-            <Text className={`font-semibold text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Nombre</Text>
+            <Text className={`font-semibold text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-primary'}`}>Nombre</Text>
             <TextInput
               className={inputClass}
-              style={inputStyle}
               value={nombre}
               onChangeText={setNombre}
               placeholder="Tu nombre"
@@ -140,10 +138,9 @@ export default function FormularioPerfil() {
 
         <Animated.View entering={FadeInDown.delay(300).duration(400).springify()}>
           <Card className="mb-4">
-            <Text className={`font-semibold text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Correo electrónico</Text>
+            <Text className={`font-semibold text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-primary'}`}>Correo electrónico</Text>
             <TextInput
               className={inputClass}
-              style={inputStyle}
               value={email}
               placeholder="Correo electrónico"
               editable={false}
@@ -154,10 +151,9 @@ export default function FormularioPerfil() {
 
         <Animated.View entering={FadeInDown.delay(400).duration(400).springify()}>
           <Card className="mb-6">
-            <Text className={`font-semibold text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Teléfono</Text>
+            <Text className={`font-semibold text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-primary'}`}>Teléfono</Text>
             <TextInput
               className={inputClass}
-              style={inputStyle}
               value={telefono}
               onChangeText={setTelefono}
               placeholder="Tu número de teléfono"
@@ -171,11 +167,11 @@ export default function FormularioPerfil() {
           <CustomButton
             title="Guardar cambios"
             onPress={handleSubmit}
-            style="bg-secondary w-1/2"
+            style="bg-primary w-1/2"
           />
 
           <TouchableOpacity onPress={() => router.push("/profile")}>
-            <Text className="text-primary text-center font-extrabold text-lg">Cancelar</Text>
+            <Text className="text-secondary text-center font-extrabold text-lg">Cancelar</Text>
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>

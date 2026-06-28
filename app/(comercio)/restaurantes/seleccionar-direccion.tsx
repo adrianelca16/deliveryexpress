@@ -40,21 +40,18 @@ export default function MapaScreen() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [loadingLocation, setLoadingLocation] = useState(true);
   const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        setLoadingLocation(false);
         return;
       }
       const loc = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = loc.coords;
       setRegion({ latitude, longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 });
       setMarker({ latitude, longitude });
-      setLoadingLocation(false);
     })();
   }, []);
 

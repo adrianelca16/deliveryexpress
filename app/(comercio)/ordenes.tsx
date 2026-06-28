@@ -88,16 +88,15 @@ export default function Ordenes() {
   };
 
   return (
-    <ScreenWrapper gradient>
-      <Header title="Órdenes" showBack backHref="/(comercio)" gradient />
+    <ScreenWrapper>
+      <Header title="Órdenes" showBack backHref="/(comercio)" className='mb-3' />
 
       <View className="px-5">
         <Animated.View entering={FadeInDown.delay(100).duration(400)} className="flex-row gap-3 mt-2">
           <View className="flex-1">
             <TouchableOpacity
               onPress={() => setShowDatePicker(true)}
-              className={`flex-row items-center justify-between px-4 py-3.5 rounded-2xl ${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"}`}
-              style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+              className={`flex-row items-center justify-between px-4 py-3.5 rounded-2xl ${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"}`}
             >
               <Text className={`text-sm font-medium ${fechaFilter ? (darkMode ? "text-white" : "text-gray-900") : (darkMode ? "text-gray-400" : "text-gray-500")}`}>
                 {fechaFilter || "Fecha"}

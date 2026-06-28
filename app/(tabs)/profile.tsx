@@ -51,11 +51,7 @@ const Profile = () => {
 
   return (
     <ScreenWrapper>
-      <Header title="Perfil" showBack rightAction={
-        <TouchableOpacity>
-          <Ionicons name="notifications" size={28} color="#2563EB" />
-        </TouchableOpacity>
-      } />
+      <Header className="mb-3" title="Perfil" showBack />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
         <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="px-4 overflow-visible">
