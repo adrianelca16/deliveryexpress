@@ -19,6 +19,7 @@ const SignIn = () => {
 
   const { darkMode } = useThemeStore();
   const login = useAuthStore((state) => state.login);
+  const setVerificado = useAuthStore((state) => state.setVerificado);
 
   const [popup, setPopup] = useState({
     visible: false,
@@ -43,28 +44,28 @@ const SignIn = () => {
       const { usuario, token } = response.data;
 
       login({
+        id: usuario.id,
         nombre: usuario.nombre,
         email: usuario.email,
         rol: usuario.rol,
         token: token.access,
-        $id: usuario.id,
-        $collectionId: '',
-        $databaseId: '',
-        $createdAt: '',
-        $updatedAt: '',
-        $permissions: [],
         telefono: usuario.telefono,
         foto_perfil: usuario.foto_perfil,
         foto_perfil_url: usuario.foto_perfil_url,
+        verificacion_email: usuario.verificacion_email ?? false,
+        verificacion_telefono: usuario.verificacion_telefono ?? false,
+        verificacion_identidad: usuario.verificacion_identidad ?? false,
       });
 
-      showPopup('Inicio sesión correctamente', 'check-circle');
+      setVerificado({
+        email: usuario.verificacion_email ?? false,
+        telefono: usuario.verificacion_telefono ?? false,
+        cedula: usuario.verificacion_identidad ?? false,
+      });
 
-      setTimeout(() => {
-        if (usuario.rol === 'comercio') router.replace('/(comercio)');
-        if (usuario.rol === 'cliente') router.replace('/(tabs)');
-        if (usuario.rol === 'conductor') router.replace('/(delivery)');
-      }, 1000);
+      if (usuario.rol === 'comercio') router.replace('/(comercio)');
+      else if (usuario.rol === 'conductor') router.replace('/(delivery)');
+      else router.replace('/(tabs)');
     } catch (error: any) {
       showPopup('Correo o contraseña incorrectos. Por favor verifica tus datos e inténtalo de nuevo.', 'cancel');
     } finally {
@@ -83,13 +84,15 @@ const SignIn = () => {
 
       <SafeAreaView className="flex-1">
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior="padding"
+          keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
           className="flex-1"
         >
           <ScrollView
             className="flex-1"
-            contentContainerStyle={{ flexGrow: 1 }}
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             <View className="px-5 pt-4">
               <Link href="/role-select" asChild>

@@ -18,8 +18,6 @@ export default function ScreenWrapper({
 }: ScreenWrapperProps) {
   const { darkMode } = useThemeStore();
 
-  const Container = safe ? SafeAreaView : View;
-
   if (gradient && !darkMode) {
     return (
       <View className={`flex-1 ${className}`}>
@@ -27,14 +25,30 @@ export default function ScreenWrapper({
           colors={['rgba(37, 99, 235, 0.06)', 'transparent']}
           className="absolute inset-0"
         />
-        <Container className="flex-1">{children}</Container>
+        <SafeAreaView
+          edges={['top', 'left', 'right']}
+          className="flex-1"
+        >
+          {children}
+        </SafeAreaView>
       </View>
     );
   }
 
+  if (safe) {
+    return (
+      <SafeAreaView
+        edges={['top', 'left', 'right']}
+        className={`flex-1 ${darkMode ? 'bg-gray-900' : 'bg-white'} ${className}`}
+      >
+        {children}
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <Container className={`flex-1 ${darkMode ? 'bg-gray-900' : 'bg-white'} ${className}`}>
+    <View className={`flex-1 ${darkMode ? 'bg-gray-900' : 'bg-white'} ${className}`}>
       {children}
-    </Container>
+    </View>
   );
 }

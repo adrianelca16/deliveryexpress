@@ -9,13 +9,18 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import ScreenWrapper from '@/components/ui/ScreenWrapper'
 import Card from '@/components/ui/Card'
 import Animated, { FadeInDown } from 'react-native-reanimated'
+import PopupMessage from '@/components/PopupMessage'
+import { getVerificacionReturnTo } from '@/utils/verificacion'
 
 export default function ConfirmacionRegistro() {
   const token = useAuthStore((state) => state.user?.token);
+  const setVerificado = useAuthStore((state) => state.setVerificado);
   const { darkMode } = useThemeStore();
   const [email, setEmail] = useState(false);
   const [telefono, setTelefono] = useState(false);
   const [cedula, setCedula] = useState(false);
+  const [popup, setPopup] = useState({ visible: false, message: "", icon: "cancel" as const });
+  const showError = (msg: string) => setPopup({ visible: true, message: msg, icon: "cancel" });
 
   const router = useRouter();
 
@@ -31,7 +36,7 @@ export default function ConfirmacionRegistro() {
       setTelefono(!!data.verificacion_telefono);
       setCedula(!!data.verificacion_identidad);
     } catch (err) {
-      console.log("Error obteniendo validaciones:", err);
+      showError("Error al verificar tu registro");
     }
   };
 
@@ -50,7 +55,7 @@ export default function ConfirmacionRegistro() {
   const allDone = email && telefono && cedula;
 
   return (
-    <ScreenWrapper gradient safe>
+    <ScreenWrapper safe>
       <View className="items-center px-4 mt-4">
         <Image source={images.pizza_detective} className="w-52 h-52" resizeMode="contain" />
       </View>
@@ -65,19 +70,21 @@ export default function ConfirmacionRegistro() {
               onPress={() => router.push(step.route as any)}
               activeOpacity={step.done ? 1 : 0.8}
             >
-              <Card className={`flex-row items-center gap-4 ${step.done ? 'border-green-300 dark:border-green-700' : ''}`}>
-                <View className={`w-12 h-12 rounded-2xl items-center justify-center ${step.done ? 'bg-green-100' : 'bg-primary'}`}>
+              <Card className={`flex-row items-center gap-4 ${step.done ? 'border-primary dark:border-blue-400' : ''}`}
+                style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
+              >
+                <View className={`w-12 h-12 rounded-2xl items-center justify-center ${step.done ? 'bg-blue-100 dark:bg-blue-900/50' : 'bg-primary'}`}>
                   {step.done ? (
-                    <Ionicons name="checkmark-circle" size={28} color="#65A30D" />
+                    <Ionicons name="checkmark-circle" size={28} color="#2563EB" />
                   ) : (
                     step.icon(false)
                   )}
                 </View>
-                <Text className={`flex-1 font-semibold text-base ${step.done ? 'text-green-600 dark:text-green-400' : darkMode ? 'text-white' : 'text-gray-800'}`}>
+                <Text className={`flex-1 font-semibold text-base ${step.done ? 'text-primary dark:text-blue-400' : darkMode ? 'text-white' : 'text-gray-800'}`}>
                   {step.label}
                 </Text>
                 {step.done && (
-                  <Ionicons name="checkmark-circle" size={24} color="#65A30D" />
+                  <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
                 )}
               </Card>
             </TouchableOpacity>
@@ -89,11 +96,20 @@ export default function ConfirmacionRegistro() {
         <TouchableOpacity
           className={`py-4 rounded-2xl items-center shadow-lg ${allDone ? 'bg-secondary shadow-green-500/20' : 'bg-gray-300 dark:bg-gray-700'}`}
           disabled={!allDone}
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => {
+            setVerificado({ email, telefono, cedula });
+            router.replace((getVerificacionReturnTo() || '/(tabs)') as any);
+          }}
         >
           <Text className={`font-bold text-lg ${allDone ? 'text-white' : 'text-gray-500'}`}>Confirmar</Text>
         </TouchableOpacity>
       </Animated.View>
+      <PopupMessage
+        visible={popup.visible}
+        message={popup.message}
+        icon={popup.icon}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </ScreenWrapper>
   )
 }

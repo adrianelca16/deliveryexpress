@@ -1,20 +1,23 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useState, useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { API_URL } from '@/constants';
+import { API_URL, images, mediaUrl } from '@/constants';
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 import { useThemeStore } from '@/store/theme.store';
 import ThemePicker from '@/components/ThemePicker';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ScreenWrapper from '@/components/ui/ScreenWrapper';
 import Header from '@/components/ui/Header';
 
 export default function FormularioPlato() {
     const router = useRouter();
-    const { id } = useLocalSearchParams();
+    const insets = useSafeAreaInsets();
+    const rawId = useLocalSearchParams().id;
+    const id = Array.isArray(rawId) ? rawId[0] : rawId;
     const user = useAuthStore((state) => state.user);
     const token = user?.token;
     const { darkMode } = useThemeStore();
@@ -25,6 +28,7 @@ export default function FormularioPlato() {
     const [precioDescuento, setPrecioDescuento] = useState('');
     const [disponible, setDisponible] = useState<boolean | null>(true);
     const [imagen, setImagen] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -45,7 +49,7 @@ export default function FormularioPlato() {
                             if (imagen_url.startsWith('http')) {
                                 setImagen(imagen_url);
                             } else {
-                                setImagen(`${API_URL}/media/${imagen_url}`);
+                                setImagen(mediaUrl(imagen_url));
                             }
                         }
                     } catch (error) {
@@ -67,23 +71,29 @@ export default function FormularioPlato() {
     );
 
     const seleccionarImagen = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            quality: 1,
-        });
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 1,
+            });
 
-        if (!result.canceled) {
-            setImagen(result.assets[0].uri);
+            if (!result.canceled) {
+                setImagen(result.assets[0].uri);
+            }
+        } catch {
+            Alert.alert("Error", "No se pudo acceder a la galería");
         }
     };
 
         const handleSubmit = async () => {
+        setLoading(true);
         if (!token) {
             Alert.alert('Error de autenticación', 'No hay token de acceso. Inicia sesión nuevamente.');
+            setLoading(false);
             return;
         }
 
-        const formHeaders: Record<string, string> = {
+        const formDataHeaders: Record<string, string> = {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'multipart/form-data',
         };
@@ -118,7 +128,8 @@ export default function FormularioPlato() {
                     ? `${API_URL}/api/restaurantes/platos/${id}/`
                     : `${API_URL}/api/restaurantes/platos/`;
                 const method = id ? axios.patch : axios.post;
-                await method(url, formData, { headers: formHeaders, timeout: 60000 });
+                await method(url, formData, { headers: formDataHeaders, timeout: 60000 });
+                setLoading(false);
                 router.replace('/(comercio)/platos');
                 return;
             } catch (uploadErr: any) {
@@ -127,6 +138,7 @@ export default function FormularioPlato() {
                     || uploadErr.message
                     || 'Error desconocido';
                 Alert.alert('Error al guardar plato', typeof detail === 'string' ? detail : JSON.stringify(detail));
+                setLoading(false);
                 return;
             }
         }
@@ -137,6 +149,7 @@ export default function FormularioPlato() {
                 : `${API_URL}/api/restaurantes/platos/`;
             const method = id ? axios.patch : axios.post;
             await method(url, payload, { headers: jsonHeaders, timeout: 60000 });
+            setLoading(false);
             router.replace('/(comercio)/platos');
         } catch (error: any) {
             const detail = error.response?.data?.detail
@@ -145,16 +158,37 @@ export default function FormularioPlato() {
                 || 'Error desconocido';
             console.log('Error full:', error.response || error.message);
             Alert.alert('Error al guardar plato', typeof detail === 'string' ? detail : JSON.stringify(detail));
+            setLoading(false);
         }
     };
 
     return (
         <ScreenWrapper>
+            <Modal
+                visible={loading}
+                transparent
+                animationType="fade"
+            >
+                <View className="flex-1 items-center justify-center" style={{ backgroundColor: darkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.3)' }}>
+                    <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 items-center justify-center" style={{ backgroundColor: darkMode ? '#1F2937' : '#FFFFFF' }}>
+                        <Image
+                            source={images.carga}
+                            style={{ width: 120, height: 120 }}
+                            resizeMode="contain"
+                        />
+                        <Text className={`mt-4 text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                            Guardando plato...
+                        </Text>
+                    </View>
+                </View>
+            </Modal>
+
             <Header className='mb-4' title={id ? "Editar Plato" : "Crear Plato"} showBack backHref="/(comercio)/platos" />
 
             <ScrollView
                 className="flex-1 px-6"
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: insets.bottom }}
             >
                 <Animated.View entering={FadeInDown.delay(100).duration(400)}>
                     <Text className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-primary"}`}>Nombre del plato</Text>
@@ -239,7 +273,7 @@ export default function FormularioPlato() {
                         <TouchableOpacity
                             onPress={seleccionarImagen}
                             className="bg-secondary/90 py-3.5 rounded-2xl items-center"
-                            style={{ shadowColor: '#65A30D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+                            style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
                             activeOpacity={0.85}
                         >
                             <Ionicons name="image-outline" size={20} color="white" />
@@ -253,7 +287,7 @@ export default function FormularioPlato() {
                 <Animated.View entering={FadeInDown.delay(400).duration(400)}>
                     <TouchableOpacity
                         className="bg-primary py-3.5 px-6 rounded-2xl"
-                        style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+                        style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
                         activeOpacity={0.85}
                         onPress={handleSubmit}
                     >
@@ -265,7 +299,7 @@ export default function FormularioPlato() {
                     {id && (
                         <TouchableOpacity
                             className="bg-secondary py-3.5 px-6 rounded-2xl mt-4"
-                            style={{ shadowColor: '#65A30D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+                            style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
                             activeOpacity={0.85}
                             onPress={() => router.push({pathname:'/platos/formulario-opciones', params:{ id: id} } )}
                         >

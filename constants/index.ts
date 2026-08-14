@@ -183,5 +183,14 @@ export const getCategoryColor = (nombre?: string) => {
 
 export const VenezuelaEstados = Venezuela
 
-export const API_URL = 'http://161.97.137.192:8004';
-export { THEME_PRIMARY, THEME_SECONDARY, THEME_NAME } from './theme';
+export const OSRM_API_URL = 'http://161.97.137.192:5003';
+import { API_URL } from './theme';
+export { THEME_PRIMARY, THEME_SECONDARY, THEME_NAME, API_URL } from './theme';
+
+export const mediaUrl = (path?: string) => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  const base = API_URL.replace(/\/+$/, '');
+  const cleanPath = path.replace(/^\/+/, '');
+  return `${base}/media/${cleanPath}`;
+};

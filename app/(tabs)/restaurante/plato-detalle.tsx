@@ -3,15 +3,17 @@ import { useCallback, useState } from "react";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
 import { Plato, Restaurante } from "@/type";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import axios from "axios";
-import { API_URL } from "@/constants";
+import { API_URL, images } from "@/constants";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCarrito } from "@/store/useCart";
 import { useThemeStore } from '@/store/theme.store';
 import ScreenWrapper from "@/components/ui/ScreenWrapper";
 import Card from "@/components/ui/Card";
+import PopupMessage from "@/components/PopupMessage";
 
 export default function PlatoDetalle() {
   const { id } = useLocalSearchParams();
@@ -19,14 +21,19 @@ export default function PlatoDetalle() {
   const [plato, setPlato] = useState<Plato>();
   const [restaurante, setRestaurante] = useState<Restaurante>();
   const [tiposOpciones, setTiposOpciones] = useState<any[]>([]);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [loading, setLoading] = useState(true);
+
   const [quantity, setQuantity] = useState(1);
   const { agregarAlCarrito } = useCarrito();
   const { darkMode } = useThemeStore();
+  const [popup, setPopup] = useState({ visible: false, message: "", icon: "cancel" as const });
+  const showError = (msg: string) => setPopup({ visible: true, message: msg, icon: "cancel" });
   const router = useRouter();
   const { height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const fetchPlato = async () => {
+    setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/api/restaurantes/platos/${id}/`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -58,7 +65,9 @@ export default function PlatoDetalle() {
 
       setTiposOpciones(tiposConOpciones);
     } catch (err) {
-      console.log("Error obteniendo plato o tipos:", err);
+      showError("Error al cargar el plato");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -104,22 +113,59 @@ export default function PlatoDetalle() {
   };
 
   const handleAddToCart = () => {
+    const extrasSeleccionados: Array<{ id: string; nombre: string; precio: number }> = [];
+    
+    tiposOpciones.forEach((tipo) => {
+      const seleccionadas = selecciones[tipo.id] || [];
+      seleccionadas.forEach((opId) => {
+        const op = tipo.opciones.find((o: any) => o.id === opId);
+        if (op) {
+          extrasSeleccionados.push({
+            id: op.id.toString(),
+            nombre: op.nombre,
+            precio: Number(op.precio_adicional) || 0,
+          });
+        }
+      });
+    });
+
+    const totalConExtras = calculateTotal();
 
     agregarAlCarrito({
       id: plato?.id?.toString() ?? "",
       nombre: plato?.nombre ?? "",
-      precio: Number(plato?.precio_descuento ?? plato?.precio) || 0,
+      precio: totalConExtras / quantity,
       imagen: plato?.imagen ?? "",
       nombre_restaurante: restaurante?.nombre || "",
       cantidad: quantity,
       restauranteId: restaurante?.id || "",
+      extras: extrasSeleccionados,
     });
 
     router.back();
   };
 
   return (
-    <ScreenWrapper className="flex-1">
+    <ScreenWrapper>
+      <Modal
+        visible={loading}
+        transparent
+        animationType="fade"
+      >
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: darkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.3)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 items-center justify-center" style={{ backgroundColor: darkMode ? '#1F2937' : '#FFFFFF' }}>
+            <Image
+              source={images.carga}
+              style={{ width: 120, height: 120 }}
+              resizeMode="contain"
+            />
+            <Text className={`mt-4 text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+              Cargando plato...
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-4">
         <TouchableOpacity
@@ -134,22 +180,12 @@ export default function PlatoDetalle() {
         <Text className={`text-lg font-bold flex-1 text-center ${darkMode ? "text-white" : "text-primary"}`} numberOfLines={1}>
           {restaurante?.nombre ?? "Plato"}
         </Text>
-        <TouchableOpacity
-          onPress={() => setIsFavorite(!isFavorite)}
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{
-            backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(37,99,235,0.1)',
-          }}
-        >
-          <Ionicons
-            name={isFavorite ? "heart" : "heart-outline"}
-            size={22}
-            color={isFavorite ? "#EF4444" : darkMode ? "#F9FAFB" : "#2563EB"}
-          />
-        </TouchableOpacity>
       </View>
 
-      <ScrollView className="flex-1 mb-28" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
+      >
         <View className="px-4">
           <Animated.View entering={FadeInDown.delay(0).springify()} className="-mx-4 mb-5">
             <View className="relative" style={{ height: screenHeight * 0.45 }}>
@@ -355,7 +391,12 @@ export default function PlatoDetalle() {
       <LinearGradient
         colors={darkMode ? ['#111827', '#111827'] : ['#FFFFFF', '#FFFFFF']}
         className="absolute bottom-0 left-0 right-0"
-        style={{ borderTopWidth: 1, borderTopColor: '#B8860B' }}
+        style={{
+          borderTopWidth: 1,
+          borderTopColor: '#B8860B',
+          paddingBottom: Math.max(insets.bottom, 8),
+          paddingTop: 12,
+        }}
       >
         <View className="px-4 py-4 flex-row items-center gap-4">
           {/* Cantidad */}
@@ -388,6 +429,12 @@ export default function PlatoDetalle() {
           </TouchableOpacity>
         </View>
       </LinearGradient>
+      <PopupMessage
+        visible={popup.visible}
+        message={popup.message}
+        icon={popup.icon}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </ScreenWrapper>
   );
 }

@@ -9,10 +9,10 @@ import {
   TextInput,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { API_URL, images, getCategoryImage, getCategoryColor } from "@/constants";
+import { API_URL, images, getCategoryImage } from "@/constants";
 import { useCallback, useState } from "react";
 import axios from "axios";
-import { Categoria, Direccion } from "@/type";
+import { Categoria, Direccion, Plato, Restaurante } from "@/type";
 import { useAuthStore } from "@/store/auth.store";
 import { useThemeStore } from "@/store/theme.store";
 import { router, useFocusEffect } from "expo-router";
@@ -21,17 +21,21 @@ import Carrusel from "@/components/Carrusel";
 import ScreenLoading from "@/components/ScreenLoading";
 import ScreenWrapper from "@/components/ui/ScreenWrapper";
 import LocationHeader from "@/components/ui/LocationHeader";
+import PopupMessage from "@/components/PopupMessage";
 
 export default function Index() {
   const token = useAuthStore((state) => state.user?.token);
   const user = useAuthStore((store) => store.user);
   const [direccionPrincipal, setDireccionPrincipal] = useState<Direccion | null>(null);
   const [loading, setLoading] = useState(true);
-  const [restaurantesTop, setRestaurantesTop] = useState<any[]>([]);
+  const [restaurantesTop, setRestaurantesTop] = useState<Restaurante[]>([]);
   const [categoriasDisponibles, setCategoriasDisponibles] = useState<Categoria[]>([]);
-  const [platosPromocion, setPlatosPromocion] = useState<any[]>([]);
-  const [platosDescuento, setPlatosDescuento] = useState<any[]>([]);
+  const [platosPromocion, setPlatosPromocion] = useState<Plato[]>([]);
+  const [platosDescuento, setPlatosDescuento] = useState<Plato[]>([]);
   const { darkMode } = useThemeStore();
+
+  const [popup, setPopup] = useState({ visible: false, message: "", icon: "cancel" as const });
+  const showError = (msg: string) => setPopup({ visible: true, message: msg, icon: "cancel" });
 
   const [busqueda, setBusqueda] = useState('');
 
@@ -42,7 +46,7 @@ export default function Index() {
       });
       setCategoriasDisponibles(res.data);
     } catch (err) {
-      console.log("Error obteniendo categorías:", err);
+      showError("Error al cargar categorías");
     }
   };
 
@@ -56,7 +60,7 @@ export default function Index() {
         .slice(0, 5);
       setRestaurantesTop(top);
     } catch (err) {
-      console.log("Error obteniendo restaurantes:", err);
+      showError("Error al cargar restaurantes");
     }
   };
 
@@ -65,13 +69,14 @@ export default function Index() {
       const res = await axios.get(`${API_URL}/api/restaurantes/platos/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const ordenados = [...res.data]
-        .sort((a: any, b: any) => (b.calificacion_promedio || 0) - (a.calificacion_promedio || 0))
+      const data: Plato[] = res.data;
+      const ordenados = [...data]
+        .sort((a, b) => (Number(b.precio_descuento ?? b.precio) || 0) - (Number(a.precio_descuento ?? a.precio) || 0))
         .slice(0, 10);
       setPlatosPromocion(ordenados);
-      const descuento = [...res.data]
-        .filter((p: any) => p.precio_descuento)
-        .sort((a: any, b: any) => {
+      const descuento = [...data]
+        .filter((p) => p.precio_descuento)
+        .sort((a, b) => {
           const dA = ((a.precio - a.precio_descuento) / a.precio) * 100;
           const dB = ((b.precio - b.precio_descuento) / b.precio) * 100;
           return dB - dA;
@@ -79,7 +84,7 @@ export default function Index() {
         .slice(0, 5);
       setPlatosDescuento(descuento);
     } catch (err) {
-      console.log("Error obteniendo platos:", err);
+      showError("Error al cargar platos");
     }
   };
 
@@ -91,17 +96,18 @@ export default function Index() {
       const principal = res.data.find((d: Direccion) => d.es_predeterminada);
       setDireccionPrincipal(principal || null);
     } catch (err) {
-      console.log("Error obteniendo direcciones:", err);
+      showError("Error al cargar dirección");
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchCategorias();
-      fetchPlatos();
-      fetchRestaurantes();
-      fetchDireccionPrincipal();
-      setLoading(false);
+      Promise.all([
+        fetchCategorias(),
+        fetchPlatos(),
+        fetchRestaurantes(),
+        fetchDireccionPrincipal(),
+      ]).finally(() => setLoading(false));
     }, [])
   );
 
@@ -113,6 +119,11 @@ export default function Index() {
     <ScreenWrapper>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          backgroundColor: darkMode ? "#111827" : "#FFFFFF",
+        }}
       >
         {/* Header: ubicación + búsqueda */}
         <View className="px-5 pt-2 pb-2">
@@ -120,12 +131,9 @@ export default function Index() {
             <View className="flex-1 mr-3">
               <LocationHeader
                 direccionTexto={direccionPrincipal?.nombre || direccionPrincipal?.direccion_texto}
-                onLocationPress={() => router.push('/(tabs)/perfil/direccion')}
+                onLocationPress={() => router.push('/(tabs)/direcciones/direccion')}
               />
             </View>
-            <TouchableOpacity onPress={() => router.push("/profile")} className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center">
-              <Ionicons name="notifications-outline" size={24} color="#2563EB" />
-            </TouchableOpacity>
           </View>
 
           <View className={`flex-row items-center mt-2 ${darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"} rounded-lg px-4`}>
@@ -162,10 +170,10 @@ export default function Index() {
                     className="items-center gap-2"
                   >
                     <View className="w-20 h-20 rounded-full items-center justify-center shadow-sm"
-                      style={{ backgroundColor: getCategoryColor(item.nombre) }}
+                      style={{ backgroundColor: item.color || '#F3F4F6' }}
                     >
                       <Image
-                        source={item.imagen ? { uri: item.imagen } : getCategoryImage(item.nombre)}
+                        source={item.imagen_url ? { uri: item.imagen_url } : item.imagen ? { uri: item.imagen } : getCategoryImage(item.nombre)}
                         className="w-12 h-12"
                         resizeMode="contain"
                       />
@@ -211,7 +219,7 @@ export default function Index() {
                         params: { id: item.id.toString() },
                       })
                     }
-                    className="w-52 bg-white rounded-2xl overflow-visible"
+                    className={`w-52 rounded-2xl overflow-visible ${darkMode ? "bg-gray-800" : "bg-white"}`}
                     style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
                   >
                     <Image
@@ -220,23 +228,23 @@ export default function Index() {
                       resizeMode="cover"
                     />
                     <View className="p-3">
-                      <Text className="font-semibold text-base text-gray-800" numberOfLines={1}>
+                      <Text className={`font-semibold text-base ${darkMode ? "text-gray-200" : "text-gray-800"}`} numberOfLines={1}>
                         {item.nombre}
                       </Text>
                       <View className="flex-row items-center justify-between mt-0.5">
                         <View className="flex-row items-center gap-1.5">
-                          <Text className="font-bold text-base text-gray-900">
+                          <Text className={`font-bold text-base ${darkMode ? "text-gray-100" : "text-gray-900"}`}>
                             ${item.precio_descuento ?? item.precio}
                           </Text>
                           {item.precio_descuento && (
-                            <Text className="text-xs text-gray-400 line-through">
+                            <Text className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"} line-through`}>
                               ${item.precio}
                             </Text>
                           )}
                         </View>
                         <View className="flex-row items-center gap-0.5">
                           <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-                          <Text className="text-xs font-semibold text-gray-600">
+                          <Text className={`text-xs font-semibold ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
                             {item.calificacion_promedio?.toFixed(1) ?? "4.5"}
                           </Text>
                         </View>
@@ -272,19 +280,19 @@ export default function Index() {
                         params: { id: item.id.toString() },
                       })
                     }
-                    className="w-64 bg-blue-50 rounded-2xl p-3.5 flex-row overflow-visible"
+                    className={`w-64 rounded-2xl p-3.5 flex-row overflow-visible ${darkMode ? "bg-gray-800" : "bg-blue-50"}`}
                     style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
                   >
                     <View className="flex-1">
-                      <Text className="font-bold text-base text-gray-900" numberOfLines={1}>
+                      <Text className={`font-bold text-base ${darkMode ? "text-gray-200" : "text-gray-900"}`} numberOfLines={1}>
                         {item.nombre}
                       </Text>
                       <View className="flex-row items-center gap-1.5 mt-1">
-                        <Text className="text-sm text-gray-500 line-through">
+                        <Text className={`text-sm ${darkMode ? "text-gray-500" : "text-gray-500"} line-through`}>
                           ${item.precio}
                         </Text>
                         <Ionicons name="arrow-forward" size={14} color="#2563EB" />
-                        <Text className="font-bold text-base text-gray-900">
+                        <Text className={`font-bold text-base ${darkMode ? "text-gray-100" : "text-gray-900"}`}>
                           ${item.precio_descuento}
                         </Text>
                       </View>
@@ -323,7 +331,7 @@ export default function Index() {
                         params: { id: item.id.toString() },
                       })
                     }
-                    className="bg-white rounded-2xl overflow-visible"
+                    className={`rounded-2xl overflow-visible ${darkMode ? "bg-gray-800" : "bg-white"}`}
                     style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
                   >
                     <Image
@@ -332,16 +340,16 @@ export default function Index() {
                       resizeMode="cover"
                     />
                     <View className="p-4">
-                      <Text className="font-bold text-xl text-gray-800" numberOfLines={1}>
+                      <Text className={`font-bold text-xl ${darkMode ? "text-gray-200" : "text-gray-800"}`} numberOfLines={1}>
                         {item.nombre}
                       </Text>
                       <View className="flex-row items-center justify-between mt-1.5">
-                        <Text className="text-sm text-gray-500" numberOfLines={1}>
+                        <Text className={`text-sm ${darkMode ? "text-gray-500" : "text-gray-500"}`} numberOfLines={1}>
                           {typeof item.categoria === "string" ? item.categoria : item.categoria?.nombre}
                         </Text>
                         <View className="flex-row items-center gap-0.5">
                           <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-                          <Text className="text-sm font-semibold text-gray-600">
+                          <Text className={`text-sm font-semibold ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
                             {item.calificacion_promedio?.toFixed(1) ?? "0.0"}
                           </Text>
                         </View>
@@ -354,6 +362,12 @@ export default function Index() {
           </View>
         )}
       </ScrollView>
+      <PopupMessage
+        visible={popup.visible}
+        message={popup.message}
+        icon={popup.icon}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </ScreenWrapper>
   );
 }

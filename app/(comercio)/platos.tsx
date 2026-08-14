@@ -1,7 +1,8 @@
-import { images, API_URL } from '@/constants';
+import { images, API_URL, mediaUrl } from '@/constants';
 import { router, useFocusEffect } from 'expo-router';
 import { useState, useMemo, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Image } from 'react-native';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth.store';
@@ -14,13 +15,14 @@ import Header from '@/components/ui/Header';
 const filtros = ['Todos', 'Disponibles', 'Agotados'];
 
 export default function Platos() {
-  const token = useAuthStore((state) => state.user?.token);
   const { darkMode } = useThemeStore();
+  const insets = useSafeAreaInsets();
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [searchText, setSearchText] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Todos');
 
   const getPlatos = async () => {
+    const token = useAuthStore.getState().user?.token;
     try {
       const response = await axios.get(`${API_URL}/api/restaurantes/platos/`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -34,7 +36,6 @@ export default function Platos() {
   useFocusEffect(
     useCallback(() => {
       getPlatos();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
@@ -72,7 +73,7 @@ export default function Platos() {
       <View className="px-5 mb-4">
         <Animated.View entering={FadeInDown.delay(100).duration(400)} className="mx-1">
           <View className={`flex-row items-center rounded-lg px-4 py-1 ${darkMode ? "bg-gray-800" : "bg-white border border-purple-100/50"}`}
-            style={darkMode ? {} : { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            style={darkMode ? {} : { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
           >
             <TextInput
               placeholder="Buscar platos..."
@@ -88,7 +89,8 @@ export default function Platos() {
 
       <FlatList
         data={filteredPlatos}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => item.id ? String(item.id) : `plato-${index}`}
+        contentContainerStyle={{ paddingBottom: insets.bottom }}
         ListHeaderComponent={() => (
           <Animated.View entering={FadeInDown.delay(150).duration(400)}>
             <View className="flex-row mb-4 align-center justify-center px-5">
@@ -97,7 +99,7 @@ export default function Platos() {
                   key={filtro}
                   onPress={() => setSelectedFilter(filtro)}
                   className={`mr-2 px-5 py-2 rounded-2xl border ${selectedFilter === filtro ? 'bg-primary border-primary' : darkMode ? 'border-gray-700' : 'border-gray-200'}`}
-                  style={selectedFilter === filtro ? { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 } : {}}
+                  style={selectedFilter === filtro ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 } : {}}
                 >
                   <Text className={`font-semibold ${selectedFilter === filtro ? 'text-white' : (darkMode ? 'text-gray-300' : 'text-gray-700')}`}>
                     {filtro}
@@ -108,18 +110,7 @@ export default function Platos() {
             <Text className='mb-4 font-bold text-xl text-secondary px-5'>Platos</Text>
           </Animated.View>
         )}
-        ListFooterComponent={() => (
-          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <TouchableOpacity
-              onPress={handleAddPlato}
-              className="bg-secondary py-3.5 px-5 rounded-2xl flex-row items-center justify-center mx-5"
-              style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
-            >
-              <Image source={images.plus} className="w-5 h-5" style={{ tintColor: 'white' }} resizeMode="contain" />
-              <Text className='text-white font-semibold ml-2 text-base'>Agregar Plato</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
+        ListFooterComponent={null}
         renderItem={({ item, index }) => (
           <Animated.View entering={FadeInDown.delay(200 + index * 60).duration(400)}>
             <TouchableOpacity
@@ -131,9 +122,9 @@ export default function Platos() {
               }
               activeOpacity={0.9}
             >
-              <Card className="flex-row mb-4 mx-5" style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+              <Card className="flex-row mb-4 mx-5" style={{ elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8 }}>
                 <Image
-                  source={{ uri: `${API_URL}/media/${item.imagen_url}` }}
+                  source={{ uri: mediaUrl(item.imagen_url) }}
                   className="h-28 w-28 rounded-2xl"
                   resizeMode="cover"
                 />
@@ -148,24 +139,24 @@ export default function Platos() {
                   </View>
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-1">
-                      {item.precio_descuento && item.precio_descuento < item.precio ? (
+                      {Number(item.precio_descuento) > 0 && Number(item.precio_descuento) < Number(item.precio) ? (
                         <>
                           <Text className="font-bold text-secondary text-base">
-                            ${item.precio_descuento}
+                            ${Number(item.precio_descuento).toFixed(2)}
                           </Text>
                           <Text className="text-gray-400 text-xs line-through">
-                            ${item.precio}
+                            ${Number(item.precio).toFixed(2)}
                           </Text>
                         </>
                       ) : (
                         <Text className="font-bold text-secondary text-base">
-                          ${item.precio}
+                          ${Number(item.precio).toFixed(2)}
                         </Text>
                       )}
                     </View>
                     <TouchableOpacity
                       className="bg-primary py-1.5 px-5 rounded-2xl"
-                      style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+                      style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
                       onPress={() =>
                         router.push({
                           pathname: "/platos/formulario",
@@ -189,6 +180,31 @@ export default function Platos() {
         )}
         showsVerticalScrollIndicator={false}
       />
-    </ScreenWrapper>
+
+        <TouchableOpacity
+          onPress={handleAddPlato}
+          activeOpacity={0.8}
+          className="absolute rounded-full items-center justify-center"
+          style={{
+            bottom: insets.bottom,
+            right: 16,
+            width: 56,
+            height: 56,
+            backgroundColor: '#B8860B',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 5,
+          }}
+        >
+          <Image
+            source={images.plus}
+            className="w-6 h-6"
+            style={{ tintColor: 'white' }}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+     </ScreenWrapper>
   );
 }

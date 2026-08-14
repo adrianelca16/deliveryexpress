@@ -25,6 +25,7 @@ import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import LocationHeader from "@/components/ui/LocationHeader";
 import { useThemeStore } from "@/store/theme.store";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import PopupMessage from "@/components/PopupMessage";
 
 const Search = () => {
   const token = useAuthStore((state) => state.user?.token);
@@ -49,6 +50,9 @@ const Search = () => {
 
   const { darkMode } = useThemeStore();
 
+  const [popup, setPopup] = useState({ visible: false, message: "", icon: "cancel" as const });
+  const showError = (msg: string) => setPopup({ visible: true, message: msg, icon: "cancel" });
+
   const fetchCategorias = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/restaurantes/categorias/`, {
@@ -56,7 +60,7 @@ const Search = () => {
       });
       setCategoriasDisponibles(res.data);
     } catch (err) {
-      console.log("Error obteniendo categorías:", err);
+      showError("Error al cargar categorías");
     }
   };
 
@@ -67,7 +71,7 @@ const Search = () => {
       });
       setRestaurantes(res.data);
     } catch (err) {
-      console.log("Error cargando restaurantes:", err);
+      showError("Error al cargar restaurantes");
     } finally {
       setLoading(false);
     }
@@ -82,7 +86,7 @@ const Search = () => {
       const principal = res.data.find((d: Direccion) => d.es_predeterminada);
       setDireccionPrincipal(principal || null);
     } catch (err) {
-      console.log("Error obteniendo direcciones:", err);
+      showError("Error al cargar dirección");
     }
   };
 
@@ -106,23 +110,26 @@ const Search = () => {
   }, [categoriaSeleccionada]);
 
   // Filtrar por categoría + búsqueda
-  const restaurantesFiltrados = restaurantes.filter((r) => {
-    const categoriaNombre =
-      typeof r.categoria === "string" ? r.categoria : r.categoria?.nombre || "";
+  const restaurantesFiltrados = restaurantes
+    .filter((r) => {
+      const categoriaNombre =
+        typeof r.categoria === "string" ? r.categoria : r.categoria?.nombre || "";
 
-    const coincideCategoria =
-      filtroSeleccionado === "Todos" ||
-      categoriaNombre.toLowerCase().includes(filtroSeleccionado.toLowerCase());
+      const coincideCategoria =
+        filtroSeleccionado === "Todos" ||
+        categoriaNombre.toLowerCase().includes(filtroSeleccionado.toLowerCase());
 
-    const coincideBusqueda = r.nombre
-      ? r.nombre.toLowerCase().includes(busqueda.toLowerCase())
-      : false;
+      const coincideBusqueda = r.nombre
+        ? r.nombre.toLowerCase().includes(busqueda.toLowerCase())
+        : false;
 
-    return coincideCategoria && coincideBusqueda;
-  });
+      return coincideCategoria && coincideBusqueda;
+    })
+    .sort((a, b) => (b.calificacion_promedio ?? 0) - (a.calificacion_promedio ?? 0));
+
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className={`flex-1 ${darkMode ? "bg-gray-900" : "bg-white"}`}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="px-5 pt-2 pb-2">
           <View className="flex-row items-center justify-between">
@@ -132,19 +139,9 @@ const Search = () => {
                   direccionPrincipal?.nombre ||
                   direccionPrincipal?.direccion_texto
                 }
-                onLocationPress={() => router.push("/(tabs)/perfil/direccion")}
+                onLocationPress={() => router.push("/(tabs)/direcciones/direccion")}
               />
             </View>
-            <TouchableOpacity
-              onPress={() => router.push("/profile")}
-              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color="#2563EB"
-              />
-            </TouchableOpacity>
           </View>
 
           <View
@@ -197,11 +194,13 @@ const Search = () => {
                   >
                     <View
                       className="w-20 h-20 rounded-full items-center justify-center shadow-sm"
-                      style={{ backgroundColor: getCategoryColor(item.nombre) }}
+                      style={{ backgroundColor: item.color || '#F3F4F6' }}
                     >
                       <Image
                         source={
-                          item.imagen
+                          item.imagen_url
+                            ? { uri: item.imagen_url }
+                            : item.imagen
                             ? { uri: item.imagen }
                             : getCategoryImage(item.nombre)
                         }
@@ -222,9 +221,9 @@ const Search = () => {
         )}
 
         {loading ? (
-          <Text className="text-center text-gray-500">Cargando...</Text>
+          <Text className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Cargando...</Text>
         ) : restaurantesFiltrados.length === 0 ? (
-          <Text className="text-center text-gray-500">No hay restaurantes</Text>
+          <Text className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}>No hay restaurantes</Text>
         ) : (
           <View className="px-5">
             {restaurantesFiltrados.map((item) => (
@@ -240,7 +239,7 @@ const Search = () => {
                 className="rounded-2xl overflow-hidden mb-4"
               >
                 <ImageBackground
-                  source={images.placeholder}
+                  source={item.imagen_url ? { uri: item.imagen_url } : images.placeholder}
                   resizeMode="cover"
                   style={{
                     width: "100%",
@@ -315,6 +314,12 @@ const Search = () => {
           </View>
         )}
       </ScrollView>
+      <PopupMessage
+        visible={popup.visible}
+        message={popup.message}
+        icon={popup.icon}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 };

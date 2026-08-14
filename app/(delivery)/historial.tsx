@@ -1,79 +1,59 @@
-import { API_URL } from "@/constants";
 import { useAuthStore } from "@/store/auth.store";
 import { useThemeStore } from '@/store/theme.store';
 import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
+import api from "@/lib/api";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useState, useEffect, useCallback } from "react";
-import { View, Text, Image, ScrollView, TouchableOpacity } from "react-native";
+import { useState, useCallback } from "react";
+import { View, Text, Image, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
+import { Orden } from "@/type";
+import { colorEstado } from "@/utils/ordenes";
 import ScreenWrapper from "@/components/ui/ScreenWrapper";
 import Header from "@/components/ui/Header";
 import Card from "@/components/ui/Card";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import PopupMessage from "@/components/PopupMessage";
 
 export default function Historial() {
   const { darkMode } = useThemeStore();
   const { user } = useAuthStore();
-  const [ordenes, setOrdenes] = useState<any[]>([]);
+  const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [popupVisible, setPopupVisible] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
   const router = useRouter();
 
-  const fetchOrdenes = async () => {
+  const fetchOrdenes = useCallback(async () => {
     try {
-      const resp = await axios.get(
-        `${API_URL}/api/ordenes/ordenes/mis-ordenes/`,
-        { headers: { Authorization: `Bearer ${user?.token}` } }
-      );
+      const resp = await api.get("/api/ordenes/ordenes/mis-ordenes/");
       setOrdenes(resp.data);
-
-      console.log(ordenes)
-
     } catch (err) {
-      console.error("Error al obtener órdenes:", err);
+      setPopupMessage("Error al obtener órdenes");
+      setPopupVisible(true);
     }
-  };
-
-  useEffect(() => {
-    fetchOrdenes();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       fetchOrdenes();
-    }, [])
+    }, [fetchOrdenes])
   );
 
-  const colorEstado = (estado: string) => {
-    switch (estado.toLowerCase()) {
-      case 'pago por verificar':
-        return '#FBC02D';
-      case 'pendiente':
-        return '#9E9E9E';
-      case 'aceptada':
-        return '#0033A0';
-      case 'asignada':
-        return '#FF9800';
-      case 'en camino':
-        return '#009688';
-      case 'entregada':
-        return '#4CAF50';
-      case 'cancelada':
-        return '#F44336';
-    }
-  };
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchOrdenes();
+    setRefreshing(false);
+  }, [fetchOrdenes]);
 
   return (
     <ScreenWrapper>
-      <Header title="Historial" showBack backHref="/(delivery)" rightAction={
-        <TouchableOpacity
-          onPress={() => router.push("/profile")}
-          className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-        >
-          <Ionicons name="notifications-outline" size={24} color="#2563EB" />
-        </TouchableOpacity>
-      } />
+      <Header title="Historial" showBack backHref="/(delivery)" />
 
-      <ScrollView className="px-4 mt-3">
-
+      <ScrollView
+        className="px-4 mt-3"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={darkMode ? "#60A5FA" : "#2563EB"} />
+        }
+      >
         {ordenes.length === 0 ? (
           <Animated.View entering={FadeInDown.duration(400).springify()}>
             <Card>
@@ -85,7 +65,7 @@ export default function Historial() {
             <Animated.View key={orden.id} entering={FadeInDown.delay(100 + index * 80).duration(400).springify()}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => router.push({ pathname: `/(delivery)/orden/orden-detalle`, params: {id: orden.id} })}
+                onPress={() => router.push({ pathname: "/(delivery)/orden/orden-detalle", params: { id: orden.id } })}
                 className="mb-4"
               >
                 <Card>
@@ -99,11 +79,13 @@ export default function Historial() {
 
                     <View className="flex-1 justify-center ml-1">
                       <Text className={`text-sm font-bold ${darkMode ? "text-gray-100" : "text-gray-800"}`}>{orden.cliente_nombre}</Text>
-                      <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{new Date(orden.creado_en).toLocaleDateString()}</Text>
+                      <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{orden.creado_en ? new Date(orden.creado_en).toLocaleDateString() : ''}</Text>
                       <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`} numberOfLines={1}>{orden.direccion_entrega}</Text>
-                      <Text className="text-xs font-semibold mt-1" style={{color: colorEstado(orden.estado_nombre || '')}}>
-                        {orden.estado_nombre}
-                      </Text>
+                      {orden.estado_nombre && (
+                        <Text className="text-xs font-semibold mt-1" style={{ color: colorEstado(orden.estado_nombre, darkMode) }}>
+                          {orden.estado_nombre}
+                        </Text>
+                      )}
                     </View>
 
                     <View className="justify-between items-end">
@@ -117,6 +99,12 @@ export default function Historial() {
           ))
         )}
       </ScrollView>
+      <PopupMessage
+        visible={popupVisible}
+        message={popupMessage}
+        icon="cancel"
+        onClose={() => setPopupVisible(false)}
+      />
     </ScreenWrapper>
   );
 }

@@ -6,123 +6,217 @@ import axios from 'axios';
 import { API_URL } from '@/constants';
 import { useAuthStore } from '@/store/auth.store';
 import { useThemeStore } from '@/store/theme.store';
-import { Orden } from '@/type';
-import { useCallback, useState } from 'react';
+import { Movimiento, Orden } from '@/type';
+import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import ScreenWrapper from '@/components/ui/ScreenWrapper';
 import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
+import PopupMessage from "@/components/PopupMessage";
 
 export default function ComercioHome() {
-  const token = useAuthStore((state) => state.user?.token);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ingresosDia, setIngresosDia] = useState(0);
   const [ventasSemana, setVentasSemana] = useState<number[]>([]);
   const [totalVentasSemana, setTotalVentasSemana] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
   const router = useRouter()
   const { darkMode } = useThemeStore();
+  const [popupVisible, setPopupVisible] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
 
   const fetchOrden = async () => {
+    const token = useAuthStore.getState().user?.token;
     try {
-      const res = await axios.get(`${API_URL}/api/ordenes/ordenes/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [ordenesRes, walletRes] = await Promise.all([
+        axios.get(`${API_URL}/api/ordenes/ordenes/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${API_URL}/api/wallet/wallets/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-      const ordenesPendientes = res.data
+      const res = ordenesRes.data;
+      let walletData = walletRes.data?.[0];
+
+      if (!walletData) {
+        try {
+          const created = await axios.post(`${API_URL}/api/wallet/wallets/create_wallet/`, {}, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          walletData = created.data.wallet;
+        } catch (e) {
+          console.log('Error creating wallet:', e);
+        }
+      }
+
+      const ordenesPendientes = res
         .filter((orden: Orden) => orden?.estado_nombre?.toLowerCase() === "pendiente")
         .sort((a: Orden, b: Orden) => (b.numero_orden ?? 0) - (a.numero_orden ?? 0));
 
       setOrdenes(ordenesPendientes);
 
       const hoy = new Date();
-      const hoyStr = hoy.toISOString().split('T')[0];
-
-      const ingresosDiaActual = res.data
-        .filter((orden: Orden) =>
-          orden?.estado_nombre?.toLowerCase() === "completada" &&
-          orden.creado_en?.startsWith(hoyStr)
-        )
-        .reduce((acc: number, orden: Orden) => acc + (orden.total ?? 0), 0);
-
-      setIngresosDia(ingresosDiaActual);
+      const ingresosHoy = walletData?.movimientos
+        ?.filter((m: Movimiento) => {
+          if (m.tipo !== 'ingreso') return false;
+          const fechaMov = new Date(m.creado_en);
+          return fechaMov.toDateString() === hoy.toDateString();
+        })
+        ?.reduce((sum: number, m: Movimiento) => sum + Number(m.monto), 0) || 0;
+      setIngresosDia(ingresosHoy);
 
       const ingresosPorDia = Array(7).fill(0);
-
-      res.data
-        .filter((orden: Orden) => orden?.estado_nombre?.toLowerCase() === "completada")
+      res
+        .filter((orden: Orden) => orden?.estado_nombre?.toLowerCase() === "entregada")
         .forEach((orden: Orden) => {
           if (!orden.creado_en) return;
-
           const fechaOrden = new Date(orden.creado_en);
           const diffDias = Math.floor((hoy.getTime() - fechaOrden.getTime()) / (1000 * 60 * 60 * 24));
-
           if (diffDias >= 0 && diffDias < 7) {
-            ingresosPorDia[6 - diffDias] += orden.total ?? 0;
+            const idx = (fechaOrden.getDay() + 6) % 7;
+            ingresosPorDia[idx] += Number(orden.monto_restaurante ?? 0);
           }
         });
 
       const ventasSemanaNumeros = ingresosPorDia.map(v => Number(v) || 0);
       setVentasSemana(ventasSemanaNumeros);
       setTotalVentasSemana(ventasSemanaNumeros.reduce((acc, monto) => acc + monto, 0));
+      setRefreshKey(k => k + 1);
 
     } catch (err) {
-      console.log("Error obteniendo órdenes:", err);
+      setPopupMessage("Error al cargar tus órdenes");
+      setPopupVisible(true);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
       fetchOrden();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
+  useEffect(() => {
+    const interval = setInterval(fetchOrden, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <ScreenWrapper>
-      <Header title="Inicio" showBack={false}/>
-      <ScrollView showsVerticalScrollIndicator={false} className='px-5'>
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} className="flex-row justify-between mt-4">
-          <Card className="flex-1 mr-2 items-center " style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
-            <Text className={`text-sm font-bold text-center ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Pedidos en curso</Text>
-            <Text className="text-3xl font-bold text-primary mt-2">{ordenes.length}</Text>
+      <Header title="Inicio" showBack={false} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1 px-5"
+        contentContainerStyle={{
+          flexGrow: 1,
+          backgroundColor: darkMode ? "#111827" : "#FFFFFF",
+        }}
+      >
+        <TouchableOpacity
+          onPress={fetchOrden}
+          className="flex-row items-center justify-end mt-2"
+        >
+          <Text className="text-primary text-sm font-semibold mr-1">Actualizar</Text>
+        </TouchableOpacity>
+        <Animated.View
+          entering={FadeInDown.delay(100).duration(400)}
+          className="flex-row justify-between mt-4"
+        >
+          <Card
+            className="flex-1 mr-2 items-center "
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.122,
+              shadowRadius: 8,
+              elevation: 5,
+            }}
+          >
+            <Text
+              className={`text-sm font-bold text-center ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+            >
+              Pedidos en curso
+            </Text>
+            <Text className="text-3xl font-bold text-primary mt-2">
+              {ordenes.length}
+            </Text>
           </Card>
-          <Card className="flex-1 ml-2 items-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
-            <Text className={`text-sm font-bold text-center ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Ingresos del día</Text>
-            <Text className="text-3xl font-bold text-secondary mt-2">${ingresosDia}</Text>
+          <Card
+            className="flex-1 ml-2 items-center"
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.122,
+              shadowRadius: 8,
+              elevation: 5,
+            }}
+          >
+            <Text
+              className={`text-sm font-bold text-center ${darkMode ? "text-gray-300" : "text-gray-600"}`}
+            >
+              Ingresos del día
+            </Text>
+            <Text className="text-3xl font-bold text-secondary mt-2">
+              ${Number(ingresosDia).toFixed(2)}
+            </Text>
           </Card>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(200).duration(400)} className="mt-6">
-          <Text className={`text-center text-lg font-bold ${darkMode ? "text-gray-200" : "text-gray-800"}`}>Tendencias de ventas</Text>
+        <Animated.View
+          entering={FadeInDown.delay(200).duration(400)}
+          className="mt-6"
+        >
+          <Text
+            className={`text-center text-lg font-bold ${darkMode ? "text-gray-200" : "text-gray-800"}`}
+          >
+            Tendencias de ventas
+          </Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-          <Card className="mt-3" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
-            <Text className={`font-bold text-lg ${darkMode ? "text-white" : "text-gray-900"}`}>Ventas semanales</Text>
-            <Text className="text-2xl font-bold text-primary mt-1">${totalVentasSemana}</Text>
+          <Card
+            className="mt-3"
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.122,
+              shadowRadius: 8,
+              elevation: 5,
+            }}
+          >
+            <Text
+              className={`font-bold text-lg ${darkMode ? "text-white" : "text-gray-900"}`}
+            >
+              Ventas semanales
+            </Text>
+            <Text className="text-2xl font-bold text-primary mt-1">
+              ${Number(totalVentasSemana).toFixed(2)}
+            </Text>
 
             <View className="items-center mt-4">
               {ventasSemana.length > 0 && (
                 <LineChart
+                  key={refreshKey}
                   data={{
-                    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                    labels: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
                     datasets: [{ data: ventasSemana }],
                   }}
-                  width={Dimensions.get('window').width - 80}
+                  width={Dimensions.get("window").width - 80}
                   height={220}
                   yAxisLabel="$"
                   chartConfig={{
-                    backgroundColor: darkMode ? '#1F2937' : '#ffffff',
-                    backgroundGradientFrom: darkMode ? '#1F2937' : '#ffffff',
-                    backgroundGradientTo: darkMode ? '#1F2937' : '#ffffff',
+                    backgroundColor: darkMode ? "#1F2937" : "#ffffff",
+                    backgroundGradientFrom: darkMode ? "#1F2937" : "#ffffff",
+                    backgroundGradientTo: darkMode ? "#1F2937" : "#ffffff",
                     decimalPlaces: 0,
                     color: (opacity = 1) => `#2563EB`,
-                    labelColor: () => darkMode ? '#D1D5DB' : '#6b7280',
+                    labelColor: () => (darkMode ? "#D1D5DB" : "#6b7280"),
                     style: { borderRadius: 16 },
                     propsForDots: {
-                      r: '6',
-                      strokeWidth: '2',
-                      stroke: '#2563EB',
+                      r: "6",
+                      strokeWidth: "2",
+                      stroke: "#2563EB",
                     },
                   }}
                   bezier
@@ -134,42 +228,87 @@ export default function ComercioHome() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(400).duration(400)}>
-          <Text className={`text-start mt-8 text-xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>Órdenes Pendientes</Text>
+          <Text
+            className={`text-start mt-8 text-xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}
+          >
+            Órdenes Pendientes
+          </Text>
         </Animated.View>
 
-        <View className='mb-4 mt-2'>
+        <View className="mb-4 mt-2 flex gap-4">
           {ordenes.length === 0 ? (
             <Animated.View entering={FadeInDown.delay(500).duration(400)}>
-              <Card >
-                <Text className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}>No tienes pedidos pendientes.</Text>
+              <Card>
+                <Text
+                  className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  No tienes pedidos pendientes.
+                </Text>
               </Card>
             </Animated.View>
           ) : (
             ordenes.slice(0, 5).map((orden, index) => (
-              <Animated.View key={orden.id} entering={FadeInDown.delay(500 + index * 80).duration(400)}>
+              <Animated.View
+                key={orden.id}
+                entering={FadeInDown.delay(500 + index * 80).duration(400)}
+              >
                 <TouchableOpacity
                   onPress={() =>
                     router.push({
-                      pathname: '/(comercio)/ordenes/orden-detalle',
-                      params: { id: orden.id }
+                      pathname: "/(comercio)/ordenes/orden-detalle",
+                      params: { id: orden.id },
                     })
-                  }>
-                  <Card className="flex-row items-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
-                    <View className="mr-4 w-12 h-12 rounded-2xl items-center justify-center" style={{ backgroundColor: 'rgba(124,58,237,0.1)' }}>
+                  }
+                >
+                  <Card
+                    className="flex-row items-center"
+                    style={{
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.122,
+                      shadowRadius: 8,
+                      elevation: 5,
+                    }}
+                  >
+                    <View
+                      className="mr-4 w-12 h-12 rounded-2xl items-center justify-center"
+                      style={{ backgroundColor: "rgba(124,58,237,0.1)" }}
+                    >
                       <Bell size={24} color="#2563EB" />
                     </View>
-                    <View className="flex-1">
-                      <Text className={`font-bold text-lg ${darkMode ? "text-white" : "text-gray-900"}`}>Pedido #{orden.numero_orden}</Text>
-                      <Text className={`text-sm mt-0.5 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Cliente: {orden.cliente_nombre}</Text>
-                      <TouchableOpacity className="bg-primary py-2 px-6 rounded-2xl self-start mt-2 shadow-sm"
-                        style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+                    <View className="flex-row justify-between items-center flex-1">
+                      <View>
+                        <Text
+                          className={`font-bold text-lg ${darkMode ? "text-white" : "text-gray-900"}`}
+                        >
+                          Pedido #{orden.numero_orden}
+                        </Text>
+                        <Text
+                          className={`text-sm mt-0.5 ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                        >
+                          Cliente: {orden.cliente_nombre}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        className="bg-primary py-2 px-6 rounded-2xl self-start mt-2 shadow-sm"
+                        style={{
+                          shadowColor: "#2563EB",
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.12,
+                          shadowRadius: 8,
+                          elevation: 5,
+                        }}
                         onPress={() =>
                           router.push({
-                            pathname: '/(comercio)/ordenes/orden-detalle',
-                            params: { id: orden.id }
+                            pathname: "/(comercio)/ordenes/orden-detalle",
+                            params: { id: orden.id },
                           })
-                        }>
-                        <Text className="text-white font-semibold text-sm">Ver Detalles</Text>
+                        }
+                      >
+                        <Text className="text-white font-semibold text-sm">
+                          Ver Detalles
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </Card>
@@ -179,6 +318,12 @@ export default function ComercioHome() {
           )}
         </View>
       </ScrollView>
+      <PopupMessage
+        visible={popupVisible}
+        message={popupMessage}
+        icon="cancel"
+        onClose={() => setPopupVisible(false)}
+      />
     </ScreenWrapper>
   );
 }

@@ -13,6 +13,7 @@ import { useThemeStore } from '@/store/theme.store';
 import ScreenWrapper from "@/components/ui/ScreenWrapper";
 import Header from "@/components/ui/Header";
 import Card from "@/components/ui/Card";
+import PopupMessage from "@/components/PopupMessage";
 
 const RestaurantePlatos = () => {
   const { id } = useLocalSearchParams();
@@ -23,6 +24,8 @@ const RestaurantePlatos = () => {
   const [platos, setPlatos] = useState<Plato[]>([]);
   const [restaurante, setRestaurante] = useState<Restaurante>();
   const [loading, setLoading] = useState(true);
+  const [popup, setPopup] = useState({ visible: false, message: "", icon: "cancel" as const });
+  const showError = (msg: string) => setPopup({ visible: true, message: msg, icon: "cancel" });
 
   const router = useRouter();
 
@@ -40,7 +43,7 @@ const RestaurantePlatos = () => {
       );
       setRestaurante(res.data);
     } catch (err) {
-      console.log("Error obteniendo platos:", err);
+      showError("Error al cargar el menú");
     } finally {
       setLoading(false);
     }
@@ -58,12 +61,6 @@ const RestaurantePlatos = () => {
       <Header
         showBack
         title={restaurante?.nombre || ""}
-        rightAction={
-          <TouchableOpacity onPress={() => router.push("/profile")} className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center">
-                        <Ionicons name="notifications-outline" size={24} color="#2563EB" />
-          </TouchableOpacity>
-        }
-
         className="mb-3"
       />
 
@@ -76,7 +73,7 @@ const RestaurantePlatos = () => {
               className="w-full h-56 rounded-2xl"
               resizeMode="cover"
             />
-            <View className="absolute top-3 right-3 flex-row items-center gap-1.5 bg-white px-3 py-1.5 rounded-full">
+            <View className={`absolute top-3 right-3 flex-row items-center gap-1.5 px-3 py-1.5 rounded-full ${darkMode ? "bg-gray-700" : "bg-white"}`}>
               <FontAwesome name="star" size={16} color="#B8860B" />
               <Text className="text-base font-bold" style={{ color: '#B8860B' }}>
                 {restaurante?.calificacion_promedio ?? "0.0"}
@@ -96,7 +93,7 @@ const RestaurantePlatos = () => {
             </View>
             <View className="flex-row items-center gap-1">
               <Feather name="clock" size={14} color="#2563EB" />
-              <Text className={`text-sm font-semibold ${darkMode ? "text-gray-300" : "text-gray-600"}`}>30-40 min</Text>
+              <Text className={`text-sm font-semibold ${darkMode ? "text-gray-300" : "text-gray-600"}`}>30-45 min</Text>
             </View>
           </View>
 
@@ -129,7 +126,7 @@ const RestaurantePlatos = () => {
           <View className="px-4 gap-4 pb-8">
             {platos.map((p, index) => {
               const itemEnCarrito = carrito.find((c) => c.id === p.id.toString());
-return (
+              return (
                 <Animated.View
                   key={p.id}
                   entering={FadeInDown.delay(index * 100).springify()}
@@ -139,7 +136,7 @@ return (
                     onPress={() => router.push(`/restaurante/plato-detalle?id=${p.id}`)}
                     activeOpacity={0.9}
                   >
-                    <Card className="flex-row overflow-hidden p-0" style={{ elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, backgroundColor: 'white' }}>
+                    <Card className="flex-row overflow-hidden p-0" style={{ elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, backgroundColor: darkMode ? '#1F2937' : 'white' }}>
                       <Image
                         source={p.imagen ? { uri: p.imagen } : images.avatar}
                         className="w-[120px] h-full rounded-l-2xl"
@@ -158,20 +155,20 @@ return (
                           </Text>
                         </View>
                         <View className="flex-row justify-between items-center">
-{p.precio_descuento ? (
-                             <View className="flex-row items-center gap-2">
-                               <Text className="text-lg font-bold" style={{ color: darkMode ? "#EAB308" : "#B8860B" }}>
-                                 ${p.precio_descuento}
-                               </Text>
-                               <Text className="text-xs text-gray-400 line-through">
-                                 ${p.precio}
-                               </Text>
-                             </View>
-                           ) : (
-                             <Text className="text-lg font-bold" style={{ color: darkMode ? "#EAB308" : "#B8860B" }}>
-                               ${p.precio}
-                             </Text>
-                           )}
+                          {p.precio_descuento ? (
+                            <View className="flex-row items-center gap-2">
+                              <Text className="text-lg font-bold" style={{ color: darkMode ? "#EAB308" : "#B8860B" }}>
+                                ${p.precio_descuento}
+                              </Text>
+                              <Text className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"} line-through`}>
+                                ${p.precio}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text className="text-lg font-bold" style={{ color: darkMode ? "#EAB308" : "#B8860B" }}>
+                              ${p.precio}
+                            </Text>
+                          )}
 
                           {itemEnCarrito ? (
                             <View className="flex-row items-center gap-2">
@@ -231,6 +228,13 @@ return (
           </View>
         )}
       </ScrollView>
+
+      <PopupMessage
+        visible={popup.visible}
+        message={popup.message}
+        icon={popup.icon}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
 
       <CarritoFlotante
         totalItems={carrito.reduce((acc, i) => acc + i.cantidad, 0)}

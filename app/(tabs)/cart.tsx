@@ -5,15 +5,18 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCarrito } from "@/store/useCart";
-import { API_URL, images } from "@/constants";
+import { useCarrito, CarritoItem } from "@/store/useCart";
+import { API_URL, OSRM_API_URL, images } from "@/constants";
 import { useCallback, useEffect, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Direccion, Estado, MetodosPagos } from "@/type";
 import axios from "axios";
+import { setVerificacionReturnTo } from "@/utils/verificacion";
 import { useAuthStore } from "@/store/auth.store";
 import { useThemeStore } from "@/store/theme.store";
 import ScreenWrapper from "@/components/ui/ScreenWrapper";
@@ -26,10 +29,14 @@ const Cart = () => {
   const { carrito, quitarDelCarrito, limpiarCarrito, agregarAlCarrito } =
     useCarrito();
   const token = useAuthStore((state) => state.user?.token);
+  const setVerificado = useAuthStore((state) => state.setVerificado);
   const { darkMode } = useThemeStore();
+  const insets = useSafeAreaInsets();
   const [estado, setEstado] = useState<Estado | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [costoEnvio, setCostoEnvio] = useState(0);
+  const [loadingEnvio, setLoadingEnvio] = useState(false);
+  const [creandoOrden, setCreandoOrden] = useState(false);
 
   const [subtotal, setSubtotal] = useState(0);
   const [total, setTotal] = useState(0);
@@ -40,6 +47,7 @@ const Cart = () => {
 
   const [direccionPrincipal, setDireccionPrincipal] =
     useState<Direccion | null>(null);
+  const [tasaDolar, setTasaDolar] = useState(0);
 
   const [popup, setPopup] = useState({
     visible: false,
@@ -61,7 +69,7 @@ const Cart = () => {
       });
       setMetodosPago(res.data);
     } catch (err) {
-      console.log("Error obteniendo métodos de pago:", err);
+      showPopup("Error al cargar métodos de pago", "cancel");
     }
   };
 
@@ -75,7 +83,18 @@ const Cart = () => {
       );
       setDireccionPrincipal(principal || null);
     } catch (err) {
-      console.log("Error obteniendo direcciones:", err);
+      showPopup("Error al cargar dirección", "cancel");
+    }
+  };
+
+  const fetchTasaDolar = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/pagos/tasa-dolar/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTasaDolar(res.data.tasa);
+    } catch (err) {
+      showPopup("Error al obtener tasa de dólar", "cancel");
     }
   };
 
@@ -88,17 +107,18 @@ const Cart = () => {
         res.data.find((e: Estado) => e.nombre.toLowerCase() === "pendiente"),
       );
     } catch (err) {
-      console.log("Error obteniendo estado de orden:", err);
+      showPopup("Error al cargar estado de orden", "cancel");
     }
   };
 
   const calcularCostoEnvio = async () => {
+    if (!direccionPrincipal || carrito.length === 0) return;
+
+    const restauranteId = carrito[0].restauranteId;
+    if (!restauranteId) return;
+
+    setLoadingEnvio(true);
     try {
-      if (!direccionPrincipal || carrito.length === 0) return;
-
-      const restauranteId = carrito[0].restauranteId;
-      if (!restauranteId) return;
-
       const resRestaurante = await axios.get(
         `${API_URL}/api/restaurantes/restaurantes/${restauranteId}/`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -119,36 +139,50 @@ const Cart = () => {
         longitude: direccionPrincipal.longitud,
       };
 
-      const url = `https://maps.enruta.store/route/v1/driving/${origen.longitude},${origen.latitude};${destino.longitude},${destino.latitude}?overview=full&geometries=geojson`;
+      const url = `${OSRM_API_URL}/route/v1/driving/${origen.longitude},${origen.latitude};${destino.longitude},${destino.latitude}?overview=full&geometries=geojson`;
 
       const res = await axios.get(url);
       const distanciaMetros = res.data.routes[0].distance;
       const distanciaKm = distanciaMetros / 1000;
 
-      let costo = distanciaKm <= 1 ? 1 : 1 + (distanciaKm - 1) * 0.45;
+      let paramsData: Record<string, string> = {};
+      try {
+        const paramsRes = await axios.get(`${API_URL}/api/gestion/parametros/publicos/`);
+        paramsData = paramsRes.data;
+      } catch (_) {}
 
-      const newSubtotal = carrito.reduce(
-        (acc, i) => acc + i.precio * i.cantidad,
-        0,
+      const primerKm = parseFloat(paramsData.costo_envio_primer_km || '1.00');
+      const kmAdicional = parseFloat(paramsData.costo_envio_km_adicional || '0.45');
+      const pctSubtotal = parseFloat(paramsData.impuesto_subtotal_porcentaje || '0.13');
+      const pctIva = parseFloat(paramsData.impuesto_iva_porcentaje || '0.16');
+
+      let costo = distanciaKm <= 1 ? primerKm : primerKm + (distanciaKm - 1) * kmAdicional;
+
+      const newSubtotal = parseFloat(
+        carrito.reduce((acc, i) => acc + i.precio * i.cantidad, 0).toFixed(2)
       );
-      const newImpuesto = newSubtotal * 0.16;
-      const newTotal = newSubtotal + newImpuesto + costo;
+      costo = parseFloat(costo.toFixed(2));
+      const newImpuesto = parseFloat(((newSubtotal * pctSubtotal + costo) * pctIva).toFixed(2));
+      const newTotal = parseFloat((newSubtotal + newImpuesto + costo).toFixed(2));
 
-      setCostoEnvio(parseFloat(costo.toFixed(2)));
-      setSubtotal(parseFloat(newSubtotal.toFixed(2)));
-      setImpuesto(parseFloat(newImpuesto.toFixed(2)));
-      setTotal(parseFloat(newTotal.toFixed(2)));
+      setCostoEnvio(costo);
+      setSubtotal(newSubtotal);
+      setImpuesto(newImpuesto);
+      setTotal(newTotal);
 
       console.log(`Distancia: ${distanciaKm.toFixed(2)} km`);
       console.log(`Costo envío: ${costo.toFixed(2)} USD`);
     } catch (err) {
       showPopup("No se pudo calcular el costo de envío", "cancel");
+    } finally {
+      setLoadingEnvio(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
       fetchPagos();
+      fetchTasaDolar();
       fetchDireccionPrincipal();
       fecthEstatusOrden();
       calcularCostoEnvio();
@@ -164,8 +198,33 @@ const Cart = () => {
 
   const handledSubmit = async () => {
     try {
+      const res = await axios.get(`${API_URL}/api/user/usuario/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = Array.isArray(res.data) ? res.data[0] : res.data;
+      const email = !!data.verificacion_email;
+      const telefono = !!data.verificacion_telefono;
+      const cedula = !!data.verificacion_identidad;
+
+      if (!email || !telefono || !cedula) {
+        setVerificado({ email, telefono, cedula });
+        setVerificacionReturnTo('/(tabs)/cart');
+        router.push("/(tabs)/registros/confirmacion-registro");
+        return;
+      }
+
+      await procesarPago();
+    } catch (err) {
+      showPopup("Error al verificar tu cuenta. Intenta nuevamente.", "cancel");
+    }
+  };
+
+  const procesarPago = async () => {
+    setCreandoOrden(true);
+    try {
       if (metodo) {
         if (metodo.nombre === "Pago móvil") {
+          setCreandoOrden(false);
           router.push({
             pathname: "/orden/pago-movil",
             params: { montoTotal: total.toFixed(2) },
@@ -176,6 +235,7 @@ const Cart = () => {
           const detalles = carrito.map((item) => ({
             plato: item.id,
             cantidad: item.cantidad,
+            extras: item.extras || [],
           }));
 
           const payload = {
@@ -199,9 +259,9 @@ const Cart = () => {
               orden: res.data.id,
               metodo: metodo.id,
               monto_usd: res.data.total,
-              tasa_cambio: "160.00",
+              tasa_cambio: tasaDolar.toFixed(2),
             };
-            await axios.post(`${API_URL}/api/pagos/pagos/`, payloadPagoBs, {
+            await axios.post(`${API_URL}/api/pagos/`, payloadPagoBs, {
               headers: { Authorization: `Bearer ${token}` },
             });
           } else {
@@ -211,7 +271,7 @@ const Cart = () => {
               monto_usd: res.data.total,
             };
 
-            await axios.post(`${API_URL}/api/pagos/pagos/`, payloadPago, {
+            await axios.post(`${API_URL}/api/pagos/`, payloadPago, {
               headers: { Authorization: `Bearer ${token}` },
             });
           }
@@ -222,16 +282,18 @@ const Cart = () => {
         }
       }
     } catch (err) {
-      console.log("Error al procesar la orden:", err);
+      showPopup("Error al procesar la orden. Intenta nuevamente.", "cancel");
+    } finally {
+      setCreandoOrden(false);
     }
   };
 
-  const seleccionarMetodo = (op: any) => {
+  const seleccionarMetodo = (op: MetodosPagos) => {
     setMetodo(op);
     setModalVisible(false);
   };
 
-  const renderCartItem = ({ item, index }: { item: any; index: number }) => {
+  const renderCartItem = ({ item, index }: { item: CarritoItem; index: number }) => {
     const itemEnCarrito = carrito.find((c) => c.id === item.id.toString());
     return (
       <Animated.View
@@ -241,11 +303,11 @@ const Cart = () => {
         <Card
           className="flex-row overflow-hidden p-0 mb-3"
           style={{
-            elevation: 4,
+            elevation: 5,
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.1,
-            shadowRadius: 4,
+            shadowRadius: 8,
           }}
         >
           <Image
@@ -267,6 +329,23 @@ const Cart = () => {
                 >
                   {item.descripcion}
                 </Text>
+              )}
+              {item.extras && item.extras.length > 0 && (
+                <View className="mt-1 gap-0.5">
+                  {item.extras.map((extra: any) => (
+                    <View key={extra.id} className="flex-row items-center gap-1">
+                      <Text className="text-[10px] text-primary">+</Text>
+                      <Text className={`text-[11px] ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                        {extra.nombre}
+                      </Text>
+                      {extra.precio > 0 && (
+                        <Text className="text-[10px] font-semibold" style={{ color: darkMode ? "#EAB308" : "#B8860B" }}>
+                          +${extra.precio.toFixed(2)}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
               )}
             </View>
             <View className="flex-row justify-between items-center">
@@ -312,6 +391,7 @@ const Cart = () => {
                       imagen: item.imagen,
                       descripcion: item.descripcion,
                       precio_descuento: item.precio_descuento,
+                      extras: item.extras,
                     });
                   }}
                   className="w-7 h-7 rounded-full bg-primary items-center justify-center"
@@ -328,21 +408,35 @@ const Cart = () => {
 
   return (
     <ScreenWrapper className="flex-1">
+      <Modal
+        visible={loadingEnvio}
+        transparent
+        animationType="fade"
+      >
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: darkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.3)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 items-center justify-center" style={{ backgroundColor: darkMode ? '#1F2937' : '#FFFFFF' }}>
+            <Image
+              source={images.carga}
+              style={{ width: 120, height: 120 }}
+              resizeMode="contain"
+            />
+            <Text className={`mt-4 text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+              Calculando envío...
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       <Header
         className="mb-3"
         showBack
         title="Mi Carrito"
-        rightAction={
-          <TouchableOpacity
-            onPress={() => router.push("/profile")}
-            className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-          >
-            <Ionicons name="notifications-outline" size={24} color="#2563EB" />
-          </TouchableOpacity>
-        }
       />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
+      >
         {carrito.length === 0 ? (
           <View className="flex-1 items-center justify-center mt-24 px-4">
             <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-4">
@@ -375,11 +469,11 @@ const Cart = () => {
               <Card
                 className="flex-row items-center gap-3 mb-4"
                 style={{
-                  elevation: 4,
+                  elevation: 5,
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,
-                  shadowRadius: 4,
+                  shadowRadius: 8,
                 }}
               >
                 <View className="w-10 h-10 rounded-full bg-primary/10 items-center justify-center">
@@ -420,11 +514,11 @@ const Cart = () => {
               <Card
                 className="mb-4"
                 style={{
-                  elevation: 6,
+                  elevation: 5,
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: 3 },
                   shadowOpacity: 0.15,
-                  shadowRadius: 6,
+                  shadowRadius: 8,
                 }}
               >
                 <Text className={`text-lg font-extrabold mb-4 text-primary`}>
@@ -456,7 +550,7 @@ const Cart = () => {
                     ${costoEnvio.toFixed(2)}
                   </Text>
                 </View>
-                <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+                <View className="flex-row justify-between items-center mb-3 pb-3 border-b border-gray-300">
                   <Text
                     className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}
                   >
@@ -531,11 +625,11 @@ const Cart = () => {
                 <Card
                   className="flex-row items-center gap-3 mb-6"
                   style={{
-                    elevation: 6,
+                    elevation: 5,
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 3 },
                     shadowOpacity: 0.15,
-                    shadowRadius: 6,
+                    shadowRadius: 8,
                   }}
                 >
                   <View className="w-10 h-10 rounded-full bg-primary/10 items-center justify-center">
@@ -569,7 +663,7 @@ const Cart = () => {
                       : "bg-gray-200"
                 }`}
                 onPress={() => handledSubmit()}
-                disabled={!direccionPrincipal || !metodo}
+                disabled={!direccionPrincipal || !metodo || creandoOrden}
                 style={
                   direccionPrincipal && metodo
                     ? {
@@ -577,28 +671,34 @@ const Cart = () => {
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: 0.3,
                         shadowRadius: 8,
-                        elevation: 6,
+                        elevation: 5,
                       }
                     : {}
                 }
               >
-                <Ionicons
-                  name="card"
-                  size={22}
-                  color={
-                    direccionPrincipal && metodo
-                      ? "white"
-                      : darkMode
-                        ? "#9CA3AF"
-                        : "#9CA3AF"
-                  }
-                />
+              <View className="flex-row items-center justify-center gap-2">
+                {creandoOrden ? (
+                  <ActivityIndicator size="small" color={direccionPrincipal && metodo ? "white" : "#9CA3AF"} />
+                ) : (
+                  <Ionicons
+                    name="card"
+                    size={22}
+                    color={
+                      direccionPrincipal && metodo
+                        ? "white"
+                        : darkMode
+                          ? "#9CA3AF"
+                          : "#9CA3AF"
+                    }
+                  />
+                )}
                 <Text
                   className={`text-lg font-bold ${direccionPrincipal && metodo ? "text-white" : darkMode ? "text-gray-500" : "text-gray-400"}`}
                 >
-                  Pagar ${total.toFixed(2)}
+                  {creandoOrden ? "Creando..." : `Pagar $${total.toFixed(2)}`}
                 </Text>
-              </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
 
               <TouchableOpacity className="mt-4 mb-8" onPress={limpiarCarrito}>
                 <Text

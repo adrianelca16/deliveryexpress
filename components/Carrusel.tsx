@@ -1,17 +1,45 @@
-import { images } from "@/constants";
+import { images, API_URL } from "@/constants";
 import { useState, useRef, useEffect } from "react";
 import { View, ScrollView, Image, TouchableOpacity, LayoutChangeEvent } from "react-native";
+import { useAuthStore } from "@/store/auth.store";
+import axios from "axios";
 
-const slides = [
-  { image: images.banner_1 },
-  { image: images.banner_2 },
-  { image: images.banner_3 },
+const fallbackSlides = [
+  { imagen_url: images.banner_1 },
+  { imagen_url: images.banner_2 },
+  { imagen_url: images.banner_3 },
 ];
 
 export default function Carrusel() {
+  const [slides, setSlides] = useState<{ imagen_url: string | number }[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [width, setWidth] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+  const token = useAuthStore((s) => s.user?.token);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${API_URL}/api/gestion/imagenes-index/activas/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data.length > 0) {
+          setSlides(res.data.map((i: any) => ({ imagen_url: i.imagen_url })));
+          return;
+        }
+      } catch {}
+      setSlides(fallbackSlides);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (slides.length === 0 || width === 0) return;
+    const interval = setInterval(() => {
+      const next = (activeIndex + 1) % slides.length;
+      scrollTo(next);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [activeIndex, width, slides.length]);
 
   const handleScroll = (e: any) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / (width || 1));
@@ -27,14 +55,7 @@ export default function Carrusel() {
     setActiveIndex(i);
   };
 
-  useEffect(() => {
-    if (width === 0) return;
-    const interval = setInterval(() => {
-      const next = (activeIndex + 1) % slides.length;
-      scrollTo(next);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [activeIndex, width]);
+  if (slides.length === 0) return null;
 
   return (
     <View onLayout={onLayout}>
@@ -53,7 +74,7 @@ export default function Carrusel() {
                 {slides.map((slide, i) => (
                   <Image
                     key={i}
-                    source={typeof slide.image === 'string' ? { uri: slide.image } : slide.image}
+                    source={typeof slide.imagen_url === 'string' ? { uri: slide.imagen_url } : slide.imagen_url}
                     style={{ width, height: 160 }}
                     resizeMode="contain"
                   />

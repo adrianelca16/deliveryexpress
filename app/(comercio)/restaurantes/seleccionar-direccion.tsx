@@ -11,7 +11,8 @@ import {
   Keyboard,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import MapView, { Marker, Region } from "react-native-maps";
+import { MapView, Marker } from "@/components/maps";
+import type { Region } from "@/components/maps";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -98,8 +99,8 @@ export default function MapaScreen() {
       <MapView
         style={styles.map}
         region={region}
-        onRegionChangeComplete={(r) => setRegion(r)}
-        onPress={(e) => setMarker(e.nativeEvent.coordinate)}
+        onRegionChangeComplete={(r: any) => setRegion(r)}
+        onPress={(e: any) => setMarker(e.nativeEvent.coordinate)}
       >
         <Marker
           coordinate={marker}

@@ -70,7 +70,7 @@ export default function ConfirmacionTelefono() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            showPopup("✅ Código verificado correctamente", "check-circle");
+            showPopup("Código verificado correctamente", "check-circle");
             router.replace("/(tabs)/registros/confirmacion-registro");
         } catch (err) {
             console.error(err);
@@ -83,13 +83,13 @@ export default function ConfirmacionTelefono() {
 
         try {
             const resp = await axios.patch(
-                `${API_URL}/api/user/usuario/${user?.$id}/`,
+                `${API_URL}/api/user/usuario/${user?.id}/`,
                 { telefono },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (resp.status === 200) {
-                showPopup("✅ Número actualizado correctamente", "check-circle");
+                showPopup("Número actualizado correctamente", "check-circle");
                 setUser({ telefono });
                 setEditandoTelefono(false);
             }
@@ -109,7 +109,7 @@ export default function ConfirmacionTelefono() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            showPopup("📲 Código enviado a tu número de teléfono", "check-circle");
+            showPopup("Código enviado a tu número de teléfono", "check-circle");
             setCooldown(300);
         } catch (err) {
             console.error(err);
@@ -124,19 +124,17 @@ export default function ConfirmacionTelefono() {
     };
 
     return (
-        <ScreenWrapper gradient>
+        <ScreenWrapper>
             <Header title="Verificar Teléfono" showBack />
 
             <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="px-4">
-                <Text className="text-center text-2xl font-extrabold text-secondary mt-2 mb-2">
-                    Confirma tu Número de Teléfono
-                </Text>
-
-                <Text className={`text-base mx-2 font-semibold text-center mb-6 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                <Text className={`text-base mx-2 font-semibold text-center mb-6 mt-3 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
                     Enviaremos un código a tu teléfono para confirmar la verificación.
                 </Text>
 
-                <Card className="mb-4">
+                <Card className="mb-4"
+                    style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
+                >
                     <CustomInput
                         placeholder="Tu número de teléfono"
                         value={telefono}
@@ -163,25 +161,32 @@ export default function ConfirmacionTelefono() {
                 />
             </Animated.View>
 
-            <Animated.View entering={FadeInDown.delay(300).duration(400).springify()}>
-                <View className="flex-row justify-center mt-6 gap-3 px-4">
-                    {otp.map((digit, index) => (
-                        <TextInput
-                            key={index}
-                            ref={(ref) => { inputs.current[index] = ref; }}
-                            value={digit}
-                            onChangeText={(text) => handleChange(text, index)}
-                            onKeyPress={(e) => handleKeyPress(e, index)}
-                            keyboardType="numeric"
-                            maxLength={1}
-                            className={`w-12 h-14 rounded-2xl text-center text-xl font-bold border-2 ${
-                                darkMode
-                                    ? 'bg-gray-800 text-gray-100 border-gray-700'
-                                    : 'bg-white text-gray-800 border-purple-100'
-                            }`}
-                        />
-                    ))}
-                </View>
+            <Animated.View entering={FadeInDown.delay(300).duration(400).springify()} className="px-4 mt-6">
+                <Card className=""
+                    style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
+                >
+                    <Text className={`text-center text-lg font-bold mb-3 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+                        Ingresa el código
+                    </Text>
+                    <View className="flex-row justify-center gap-3">
+                        {otp.map((digit, index) => (
+                            <TextInput
+                                key={index}
+                                ref={(ref) => { inputs.current[index] = ref; }}
+                                value={digit}
+                                onChangeText={(text) => handleChange(text, index)}
+                                onKeyPress={(e) => handleKeyPress(e, index)}
+                                keyboardType="numeric"
+                                maxLength={1}
+                                className={`w-12 h-14 rounded-2xl text-center text-xl font-bold border-2 ${
+                                    darkMode
+                                        ? 'bg-gray-800 text-gray-100 border-gray-700'
+                                        : 'bg-white text-gray-800 border-purple-100'
+                                }`}
+                            />
+                        ))}
+                    </View>
+                </Card>
             </Animated.View>
 
             <Animated.View entering={FadeInDown.delay(400).duration(400).springify()} className="px-4 mt-6">

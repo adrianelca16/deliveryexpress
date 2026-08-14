@@ -47,7 +47,7 @@ export default function TabsLayout() {
                 name='historial'
                 options={{
                     title: 'Historial',
-                    tabBarIcon: ({ focused }) => <TabBarIcon title="Historial" icon={images.search} focused={focused} />
+                    tabBarIcon: ({ focused }) => <TabBarIcon title="Historial" icon={images.clock} focused={focused} />
                 }}
             />
             <Tabs.Screen

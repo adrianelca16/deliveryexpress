@@ -32,6 +32,20 @@ export default function TimePickerInput({ label, value, onChange }: TimePickerIn
     hidePicker();
   };
 
+  const initialDate = (() => {
+    if (!value) return undefined;
+    const match = value.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return undefined;
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const period = match[3].toUpperCase();
+    if (period === "PM" && h < 12) h += 12;
+    if (period === "AM" && h === 12) h = 0;
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d;
+  })();
+
   const containerClass = `${darkMode ? "bg-gray-800" : "bg-white border border-gray-300"} rounded-2xl px-4 py-3.5`;
 
   return (
@@ -52,6 +66,7 @@ export default function TimePickerInput({ label, value, onChange }: TimePickerIn
         mode="time"
         onConfirm={handleConfirm}
         onCancel={hidePicker}
+        date={initialDate}
         locale="es_ES"
         is24Hour={false}
       />

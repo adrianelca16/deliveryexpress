@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, Image, Modal } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
-import { API_URL } from "@/constants";
+import { API_URL, images } from "@/constants";
 import { useAuthStore } from "@/store/auth.store";
 import { useThemeStore } from "@/store/theme.store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import PopupMessage from "@/components/PopupMessage";
 import ScreenWrapper from "@/components/ui/ScreenWrapper";
@@ -16,14 +17,16 @@ export default function FormularioOpciones() {
   const { id } = useLocalSearchParams();
   const token = useAuthStore((state) => state.user?.token);
   const { darkMode } = useThemeStore();
-  const { user } = useAuthStore();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [tipos, setTipos] = useState<
-    { id?: number; nombre: string; obligatorio: boolean; multiple: boolean; opciones: any[] }[]
+    { id?: number; nombre: string; obligatorio: boolean; multiple: boolean; opciones: { id?: number; nombre: string; precio_adicional: string }[] }[]
   >([]);
 
+  const [restauranteId, setRestauranteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [guardando, setGuardando] = useState(false);
   const [popup, setPopup] = useState({
     visible: false,
     message: "",
@@ -35,21 +38,28 @@ export default function FormularioOpciones() {
   };
 
   useEffect(() => {
-    const fetchTipos = async () => {
+    const fetchData = async () => {
+      const token = useAuthStore.getState().user?.token;
       try {
+        let rid: string | null = null;
+        try {
+          const miRes = await axios.get(`${API_URL}/api/restaurantes/restaurantes/mi_restaurante/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          rid = miRes.data?.id;
+          setRestauranteId(rid);
+        } catch {}
+
         const res = await axios.get(`${API_URL}/api/restaurantes/tipos-opciones/?plato=${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const tiposData = await Promise.all(
-          res.data.map(async (tipo: any) => {
+          res.data.map(async (tipo: { id: number; nombre: string; obligatorio: boolean; multiple: boolean }) => {
             const opcionesRes = await axios.get(`${API_URL}/api/restaurantes/opciones/?tipo=${tipo.id}`, {
               headers: { Authorization: `Bearer ${token}` },
             });
-            return {
-              ...tipo,
-              opciones: opcionesRes.data,
-            };
+            return { ...tipo, opciones: opcionesRes.data };
           })
         );
 
@@ -57,15 +67,14 @@ export default function FormularioOpciones() {
           { nombre: "", obligatorio: false, multiple: false, opciones: [] },
         ]);
       } catch (err) {
-        console.log("Error cargando tipos:", err);
+        showPopup("Error al cargar tipos de opciones", "cancel");
         setTipos([{ nombre: "", obligatorio: false, multiple: false, opciones: [] }]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTipos();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchData();
   }, [id]);
 
   const handleAddTipo = () => {
@@ -79,7 +88,7 @@ export default function FormularioOpciones() {
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {
-        console.log("Error eliminando tipo:", err);
+        showPopup("Error al eliminar tipo", "cancel");
       }
     }
     setTipos(tipos.filter((_, i) => i !== index));
@@ -98,7 +107,7 @@ export default function FormularioOpciones() {
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {
-        console.log("Error eliminando opción:", err);
+        showPopup("Error al eliminar opción", "cancel");
       }
     }
 
@@ -120,6 +129,8 @@ export default function FormularioOpciones() {
   };
 
   const handleGuardar = async () => {
+    const token = useAuthStore.getState().user?.token;
+    setGuardando(true);
     try {
       for (const tipo of tipos) {
         let tipoId = tipo.id;
@@ -132,7 +143,7 @@ export default function FormularioOpciones() {
               nombre: tipo.nombre,
               obligatorio: tipo.obligatorio,
               multiple: tipo.multiple,
-              restaurante: user?.$id,
+              restaurante: restauranteId,
             },
             { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -155,7 +166,7 @@ export default function FormularioOpciones() {
               `${API_URL}/api/restaurantes/opciones/${opcion.id}/`,
               {
                 nombre: opcion.nombre,
-                precio_adicional: parseFloat(opcion.precio_adicional || 0),
+                precio_adicional: parseFloat(opcion.precio_adicional || "0"),
               },
               { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -165,7 +176,7 @@ export default function FormularioOpciones() {
               {
                 tipo: tipoId,
                 nombre: opcion.nombre,
-                precio_adicional: parseFloat(opcion.precio_adicional || 0),
+                precio_adicional: parseFloat(opcion.precio_adicional || "0"),
               },
               { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -174,10 +185,11 @@ export default function FormularioOpciones() {
       }
 
       showPopup("Opciones guardadas correctamente", "check-circle");
+      setGuardando(false);
       router.push("/(comercio)/platos");
     } catch (err) {
-      console.log("Error guardando opciones:", err);
       showPopup("No se pudieron guardar las opciones", "cancel");
+      setGuardando(false);
     }
   };
 
@@ -191,13 +203,37 @@ export default function FormularioOpciones() {
 
   return (
     <ScreenWrapper >
-      <Header title="Opciones del Plato" showBack  className="mb-3"/>
+      <Modal
+        visible={guardando}
+        transparent
+        animationType="fade"
+      >
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: darkMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.3)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 items-center justify-center" style={{ backgroundColor: darkMode ? '#1F2937' : '#FFFFFF' }}>
+            <Image
+              source={images.carga}
+              style={{ width: 120, height: 120 }}
+              resizeMode="contain"
+            />
+            <Text className={`mt-4 text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+              Guardando opciones...
+            </Text>
+          </View>
+        </View>
+      </Modal>
 
-      <ScrollView className="px-6">
+      <Header
+        title="Opciones del Plato"
+        showBack
+        className="mb-3"
+        onBack={() => router.push({ pathname: "/(comercio)/platos/formulario", params: { id } })}
+      />
+
+      <ScrollView className="px-6" contentContainerStyle={{ paddingBottom: insets.bottom }}>
 
         {tipos.map((tipo, i) => (
           <Animated.View key={`tipo-${i}`} entering={FadeInDown.delay(150 + i * 60).duration(400)}>
-            <Card className="mb-6" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}>
+            <Card className="mb-6" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.122, shadowRadius: 8, elevation: 5 }}>
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="font-bold text-lg text-primary">Tipo #{i + 1}</Text>
                 <TouchableOpacity className="w-8 h-8 rounded-full items-center justify-center bg-red-50" onPress={() => handleRemoveTipo(i, tipo.id)}>
@@ -264,7 +300,7 @@ export default function FormularioOpciones() {
               <TouchableOpacity
                 onPress={() => handleAddOpcion(i)}
                 className="bg-primary py-2.5 px-6 rounded-2xl mt-2"
-                style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 }}
+                style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
               >
                 <Text className="text-center text-white font-semibold text-sm">+ Añadir Opción</Text>
               </TouchableOpacity>
@@ -276,7 +312,7 @@ export default function FormularioOpciones() {
           <TouchableOpacity
             onPress={handleAddTipo}
             className="bg-secondary py-3.5 px-6 rounded-2xl mb-4"
-            style={{ shadowColor: '#65A30D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+            style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
           >
             <Text className="text-center text-white font-bold">+ Añadir Tipo</Text>
           </TouchableOpacity>
@@ -284,7 +320,7 @@ export default function FormularioOpciones() {
           <TouchableOpacity
             onPress={handleGuardar}
             className="bg-primary py-3.5 px-6 rounded-2xl mb-10"
-            style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 }}
+            style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
           >
             <Text className="text-center text-white font-bold text-lg">Guardar Todo</Text>
           </TouchableOpacity>

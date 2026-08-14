@@ -1,4 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Entypo, Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/auth.store";
 import { useThemeStore } from '@/store/theme.store';
@@ -18,6 +19,7 @@ export default function FormularioPerfil() {
   const router = useRouter();
   const { user, login } = useAuthStore();
   const { darkMode } = useThemeStore();
+  const insets = useSafeAreaInsets();
 
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -102,7 +104,7 @@ export default function FormularioPerfil() {
     <ScreenWrapper>
       <Header title="Editar Perfil" showBack onBack={() => router.push("/(tabs)/profile")} />
 
-      <ScrollView className="px-4 mt-2">
+      <ScrollView className="px-4 mt-2 flex-1" contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}>
         <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="items-center mb-6">
           {fotoPerfil ? (
             <Image source={{ uri: fotoPerfil.uri }} className="w-28 h-28 rounded-full border-2 border-blue-200" />

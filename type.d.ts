@@ -1,22 +1,5 @@
-import { Models } from "react-native-appwrite";
-
-export interface MenuItem extends Models.Document {
-    name: string;
-    price: number;
-    image_url: string;
-    description: string;
-    calories: number;
-    protein: number;
-    rating: number;
-    type: string;
-}
-
-export interface Category extends Models.Document {
-    name: string;
-    description: string;
-}
-
-export interface User extends Models.Document {
+export interface User {
+    id: string;
     nombre: string;
     email: string;
     rol: string;
@@ -24,36 +7,12 @@ export interface User extends Models.Document {
     telefono: string;
     foto_perfil: string;
     foto_perfil_url: string;
+    verificacion_email: boolean;
+    verificacion_telefono: boolean;
+    verificacion_identidad: boolean;
 }
 
-export interface CartCustomization {
-    id: string;
-    name: string;
-    price: number;
-    type: string;
-}
-
-export interface CartItemType {
-    id: string; // menu item id
-    name: string;
-    price: number;
-    image_url: string;
-    quantity: number;
-    customizations?: CartCustomization[];
-}
-
-export interface CartStore {
-    items: CartItemType[];
-    addItem: (item: Omit<CartItemType, "quantity">) => void;
-    removeItem: (id: string, customizations: CartCustomization[]) => void;
-    increaseQty: (id: string, customizations: CartCustomization[]) => void;
-    decreaseQty: (id: string, customizations: CartCustomization[]) => void;
-    clearCart: () => void;
-    getTotalItems: () => number;
-    getTotalPrice: () => number;
-}
-
-interface TabBarIconProps {
+export interface TabBarIconProps {
     focused: boolean;
     icon: ImageSourcePropType;
     title: string;
@@ -87,7 +46,7 @@ interface CustomInputProps {
     label: string;
     secureTextEntry?: boolean;
     keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
-    editable?:boolean;
+    editable?: boolean;
 }
 
 interface ProfileFieldProps {
@@ -116,7 +75,7 @@ interface Role { id: string; nombre: string; descripcion: string; icons: string;
 
 interface Estado { id: string; nombre: string, descripcion: string };
 
-interface Categoria { id: string; nombre: string, descripcion: string, imagen: string };
+interface Categoria { id: string; nombre: string, descripcion: string, imagen: string, color?: string, imagen_url?: string };
 
 interface Restaurante {
   id: string;
@@ -125,16 +84,16 @@ interface Restaurante {
   direccion: string;
   latitud: number;
   longitud: number;
-  horario_apertura: string; // formato HH:mm:ss
-  horario_cierre: string;   // formato HH:mm:ss
+  horario_apertura: string;
+  horario_cierre: string;
   calificacion_promedio: number;
-  estado: string;           // UUID del estado
+  estado: string;
   usuario: string;
-  imagen_url: string;     // UUID del usuario 
+  imagen_url: string;
   capacidad: string;
   pagina_web: string;
   telefono: string;
-  categoria: Categoria | null; // UUID de la categoria
+  categoria: Categoria | null;
 }
 
 interface Plato {
@@ -143,12 +102,13 @@ interface Plato {
     descripcion: string;
     precio: number;
     imagen: string;
-    disponible: boolean;           // UUID del estado
-    restaurante: string; 
-    imagen_url: string;     // UUID del restaurante
+    disponible: boolean;
+    restaurante: string;
+    imagen_url: string;
     restaurante_nombre: string;
     precio_descuento: number;
-    }
+    calificacion_promedio?: number;
+}
 
 interface MetodosPagos {
     id: string;
@@ -159,7 +119,7 @@ interface MetodosPagos {
 
 interface Direccion {
   id: string;
-  usuario: string; // o un objeto Usuario si lo traes expandido
+  usuario: string;
   nombre: string;
   direccion_texto: string;
   latitud: number;
@@ -168,14 +128,15 @@ interface Direccion {
 }
 
 interface OrdenDetalle {
-    cantidad: number; 
-    descuento?: number; 
-    id: string; 
-    plato: string, 
-    plato_nombre: string; 
-    precio_unitario: number; 
+    cantidad: number;
+    descuento?: number;
+    id: string;
+    plato: string,
+    plato_nombre: string;
+    precio_unitario: number;
     subtotal: number;
-    plato_imagen: string; 
+    plato_imagen: string;
+    extras_detalle?: { id: string; nombre: string; precio_adicional: number }[];
 }
 
 interface Orden {
@@ -187,15 +148,32 @@ interface Orden {
   restaurante_nombre?: string;
   estado_nombre?: string;
   cliente_nombre?: string;
-  numero_orden?:number;
+  numero_orden?: number;
   direccion_entrega?: string;
   latitud?: number;
   longitud?: number;
   detalles: OrdenDetalle[];
   restaurante_imagen?: string;
-  cliente_email?:string;
-  cliente_telefono?:string;
-  cliente_foto?:string;
+  cliente_email?: string;
+  cliente_telefono?: string;
+  cliente_foto?: string;
+  subtotal?: number;
+  iva?: number;
+  costo_envio?: number;
+  monto_conductor?: number;
+  restaurante_latitud?: number;
+  restaurante_longitud?: number;
+  monto_restaurante?: number;
+  preparado_marcado?: boolean;
+  conductor_nombre?: string;
+  conductor_foto?: string;
+  conductor_telefono?: string;
+  conductor_latitud?: number;
+  conductor_longitud?: number;
+  conductor_calificacion?: number;
+  conductor_calificacion_count?: number;
+  restaurante_calificacion?: number;
+  restaurante_calificacion_count?: number;
 }
 
 interface Movimiento {
@@ -210,4 +188,6 @@ interface WalletData {
   id: string;
   saldo: number;
   movimientos: Movimiento[];
+  usuario?: string;
+  creado_en?: string;
 }

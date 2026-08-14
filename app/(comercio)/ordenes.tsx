@@ -13,9 +13,9 @@ import ThemePicker from '@/components/ThemePicker';
 import ScreenWrapper from '@/components/ui/ScreenWrapper';
 import Card from '@/components/ui/Card';
 import Header from '@/components/ui/Header';
+import { colorEstado } from "@/utils/ordenes";
 
 export default function Ordenes() {
-  const token = useAuthStore((state) => state.user?.token);
   const { darkMode } = useThemeStore();
   const router = useRouter();
 
@@ -26,6 +26,7 @@ export default function Ordenes() {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const fetchOrdenes = async () => {
+    const token = useAuthStore.getState().user?.token;
     try {
       const res = await axios.get(`${API_URL}/api/ordenes/ordenes/`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -37,11 +38,12 @@ export default function Ordenes() {
   };
 
   const fetchEstados = async () => {
+    const token = useAuthStore.getState().user?.token;
     try {
       const res = await axios.get(`${API_URL}/api/ordenes/estados-orden/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setEstados(res.data.map((e: any) => e.nombre));
+      setEstados(res.data.map((e: { id: string; nombre: string }) => e.nombre));
     } catch (err) {
       console.log('Error al obtener los estados:', err);
     }
@@ -51,7 +53,6 @@ export default function Ordenes() {
     useCallback(() => {
       fetchOrdenes();
       fetchEstados();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
@@ -62,30 +63,6 @@ export default function Ordenes() {
       return statusMatch && fechaMatch;
     })
     .sort((a, b) => (b.numero_orden ?? 0) - (a.numero_orden ?? 0));
-
-  const colorEstado = (estado: string) => {
-    if (!darkMode) {
-      switch (estado.toLowerCase()) {
-        case 'pago por verificar': return '#FBC02D';
-        case 'pendiente': return '#9E9E9E';
-        case 'aceptada': return '#0033A0';
-        case 'asignada': return '#FF9800';
-        case 'en camino': return '#009688';
-        case 'entregada': return '#4CAF50';
-        case 'cancelada': return '#F44336';
-      }
-    } else {
-      switch (estado.toLowerCase()) {
-        case 'pago por verificar': return '#FDD835';
-        case 'pendiente': return '#D1D5DB';
-        case 'aceptada': return '#60A5FA';
-        case 'asignada': return '#FFB74D';
-        case 'en camino': return '#4DB6AC';
-        case 'entregada': return '#81C784';
-        case 'cancelada': return '#EF9A9A';
-      }
-    }
-  };
 
   return (
     <ScreenWrapper>
@@ -159,7 +136,7 @@ export default function Ordenes() {
         </Animated.View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }} className="flex-1">
+      <ScrollView className="flex-1 px-5">
         {ordenesFiltradas.length === 0 ? (
           <Animated.View entering={FadeInDown.delay(200).duration(400)}>
             <Card>
@@ -177,20 +154,20 @@ export default function Ordenes() {
                   });
                 }}
               >
-                <Card className="flex-row justify-between items-center" gradient>
-                  <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: 16, borderBottomLeftRadius: 16, backgroundColor: colorEstado(orden?.estado_nombre || "") }} />
-                  <View className="flex-1 ml-2">
+                <Card className="flex-row justify-between items-center mt-3">
+                  <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: 16, borderBottomLeftRadius: 16, backgroundColor: colorEstado(orden?.estado_nombre || "", darkMode) }} />
+                  <View className="flex-1 ">
                     <Text className={`font-bold text-lg ${darkMode ? "text-white" : "text-secondary"}`}>
                       Orden #{orden.numero_orden}
                     </Text>
                     <Text className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                      {new Date(orden.creado_en).toLocaleDateString("es-ES", {
+                      {orden.creado_en ? new Date(orden.creado_en).toLocaleDateString("es-ES", {
                         day: "numeric",
                         month: "long",
                         year: "numeric",
-                      })}
+                      }) : ''}
                     </Text>
-                    <Text className='text-xs mt-1 font-semibold' style={{ color: colorEstado(orden.estado_nombre || "") }}>
+                    <Text className='text-xs mt-1 font-semibold' style={{ color: colorEstado(orden.estado_nombre || "", darkMode) }}>
                       {orden.estado_nombre}
                     </Text>
                   </View>

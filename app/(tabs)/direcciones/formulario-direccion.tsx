@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, ActivityIndicator } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { API_URL, VenezuelaEstados } from "@/constants";
 import { useAuthStore } from "@/store/auth.store";
@@ -14,6 +15,7 @@ import Header from "@/components/ui/Header";
 import Card from "@/components/ui/Card";
 import CustomButton from "@/components/CustomButton";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { consumePendingLocation } from "./pending-location";
 
 export default function FormularioDireccion() {
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function FormularioDireccion() {
   const id = params.id as string | undefined;
   const token = useAuthStore((state) => state.user?.token);
   const { darkMode } = useThemeStore();
+  const insets = useSafeAreaInsets();
 
   const [nombre, setNombre] = useState("");
   const [calle, setCalle] = useState("");
@@ -29,12 +32,11 @@ export default function FormularioDireccion() {
   const [longitud, setLongitud] = useState(0.0);
   const [esPredeterminada, setEsPredeterminada] = useState(false);
 
+  const [loading, setLoading] = useState(false);
   const [estado, setEstado] = useState("");
   const [municipio, setMunicipio] = useState("");
   const [estadosData, setEstadosData] = useState<{ nombre: string; municipios: string[] }[]>([]);
   const [municipiosData, setMunicipiosData] = useState<string[]>([]);
-
-  const justLoadedData = useRef(false);
 
   useEffect(() => {
     const mappedEstados = VenezuelaEstados.map(e => ({
@@ -45,60 +47,61 @@ export default function FormularioDireccion() {
   }, []);
 
   useEffect(() => {
-    if (justLoadedData.current) {
-      const estadoEncontrado = estadosData.find(e => e.nombre === estado);
-      if (estadoEncontrado) {
-        setMunicipiosData(estadoEncontrado.municipios);
-      }
-      justLoadedData.current = false;
-    }
+    const estadoEncontrado = estadosData.find(e => e.nombre === estado);
+    const municipios = estadoEncontrado?.municipios ?? [];
+    setMunicipiosData(municipios);
+    setMunicipio((prev) => (municipios.includes(prev) ? prev : ""));
   }, [estado, estadosData]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!id) {
-        setNombre("");
-        setEstado("");
-        setMunicipio("");
-        setCalle("");
-        setPuntoReferencia("");
-        setLatitud(0.0);
-        setLongitud(0.0);
-        setEsPredeterminada(false);
-        setMunicipiosData([]);
-      } else {
-        const fetchDireccion = async () => {
-          try {
-            const response = await axios.get(`${API_URL}/api/user/direcciones/${id}/`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            const d = response.data;
-            const direccionParts = d.direccion_texto.split(",").map((part: string) => part.trim());
-
-            setNombre(d.nombre);
-            setEstado(direccionParts[0] || "");
-            setMunicipio(direccionParts[1] || "");
-            setCalle(direccionParts[2] || "");
-            setPuntoReferencia(direccionParts.slice(3).join(", "));
-            setLatitud(d.latitud.toString());
-            setLongitud(d.longitud.toString());
-            setEsPredeterminada(d.es_predeterminada);
-            justLoadedData.current = true;
-          } catch (error) {
-            console.error("Error al cargar dirección:", error);
-          }
-        };
-        fetchDireccion();
+      const loc = consumePendingLocation();
+      if (loc) {
+        setLatitud(loc.lat);
+        setLongitud(loc.lng);
       }
-    }, [id, token])
+    }, [])
   );
 
   useEffect(() => {
-    if (params.latitud && params.longitud) {
-      setLatitud(parseFloat(params.latitud as string));
-      setLongitud(parseFloat(params.longitud as string));
+    if (!id) {
+      setNombre("");
+      setEstado("");
+      setMunicipio("");
+      setCalle("");
+      setPuntoReferencia("");
+      setEsPredeterminada(false);
+      setMunicipiosData([]);
+      setLatitud(0.0);
+      setLongitud(0.0);
+      return;
     }
-  }, [params.latitud, params.longitud]);
+
+    setLoading(true);
+    const fetchDireccion = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/user/direcciones/${id}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const d = response.data;
+        const direccionParts = d.direccion_texto.split(",").map((part: string) => part.trim());
+
+        setNombre(d.nombre);
+        setEstado(direccionParts[0] || "");
+        setMunicipio(direccionParts[1] || "");
+        setCalle(direccionParts[2] || "");
+        setPuntoReferencia(direccionParts.slice(3).join(", "));
+        setEsPredeterminada(d.es_predeterminada);
+        setLatitud(parseFloat(d.latitud));
+        setLongitud(parseFloat(d.longitud));
+      } catch (error) {
+        console.error("Error al cargar dirección:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDireccion();
+  }, [id, token]);
 
   const handleSubmit = async () => {
     const direccionCompleta = `${estado}, ${municipio}, ${calle}, ${puntoReferencia}`;
@@ -131,13 +134,13 @@ export default function FormularioDireccion() {
           headers: { Authorization: `Bearer ${token}` },
         });
         showPopup('Dirección editada correctamente', 'check-circle');
-        setTimeout(() => { router.replace("/perfil/direccion"); }, 2000);
+        setTimeout(() => { router.back(); }, 2000);
       } else {
         await axios.post(`${API_URL}/api/user/direcciones/`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showPopup('Dirección creada correctamente', 'check-circle');
-        setTimeout(() => { router.replace("/perfil/direccion"); }, 2000);
+        setTimeout(() => { router.back(); }, 2000);
       }
     } catch (error) {
       showPopup('Error al guardar dirección', 'cancel');
@@ -158,9 +161,14 @@ export default function FormularioDireccion() {
 
   return (
     <ScreenWrapper>
-      <Header className="mb-3" title={id ? "Editar Dirección" : "Nueva Dirección"} showBack onBack={() => router.push("/perfil/direccion")} />
+      <Header className="mb-3" title={id ? "Editar Dirección" : "Nueva Dirección"} showBack onBack={() => router.back()} />
 
-      <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 100 }}>
+      {loading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#2563EB" />
+        </View>
+      ) : (
+      <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}>
         <Animated.View entering={FadeInDown.delay(100).duration(400).springify()}>
           <Card className="mb-4">
             <Text className="text-primary mb-2 font-bold">Nombre de la dirección</Text>
@@ -243,7 +251,7 @@ export default function FormularioDireccion() {
 
         <Animated.View entering={FadeInDown.delay(700).duration(400).springify()}>
           <TouchableOpacity
-            onPress={() => router.push("/perfil/seleccionar-direccion")}
+            onPress={() => router.push("/direcciones/seleccionar-direccion")}
             className="mb-6"
           >
             <Card className={`items-center py-4 border-dashed border-2 ${ubicacionSeleccionada ? "border-secondary/50" : "border-primary/30 dark:border-primary/50"}`}>
@@ -261,11 +269,12 @@ export default function FormularioDireccion() {
             textStyle="text-white font-bold"
           />
 
-          <TouchableOpacity onPress={() => router.push('/(tabs)/perfil/direccion')} className="rounded-xl py-3 px-6 w-3/4 items-center" style={{ backgroundColor: '#B8860B' }}>
+          <TouchableOpacity onPress={() => router.back()} className="rounded-xl py-3 px-6 w-3/4 items-center" style={{ backgroundColor: '#B8860B' }}>
             <Text className="text-white font-bold text-lg">Cancelar</Text>
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
+      )}
 
       <PopupMessage
         visible={popup.visible}

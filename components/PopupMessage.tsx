@@ -15,16 +15,18 @@ const PopupMessage = ({ visible, message, icon, onClose }: Props) => {
 
   useEffect(() => {
     if (visible) {
-      const timer = setTimeout(onClose, 3000);
+      const isError = icon === "cancel" || icon === "error-outline";
+      const duration = isError ? 4000 : 3000;
+      const timer = setTimeout(onClose, duration);
       return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, icon]);
 
   const isSuccess = icon === "check-circle";
   const isError = icon === "cancel" || icon === "error-outline";
   const isWarning = icon === "warning";
 
-  const accentColor = isSuccess ? "#65A30D" : isError ? "#EF4444" : isWarning ? "#F59E0B" : "#2563EB";
+  const accentColor = isSuccess ? "#2563EB" : isError ? "#B8860B" : isWarning ? "#F59E0B" : "#2563EB";
   const bgColor = darkMode ? "#1F2937" : "white";
   const textColor = darkMode ? "#F9FAFB" : "#1F2937";
 

@@ -18,6 +18,8 @@ const SignUp = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const rol = useAuthStore((state) => state.selectedRole)
   const { darkMode } = useThemeStore()
+  const login = useAuthStore((state) => state.login)
+  const setVerificado = useAuthStore((state) => state.setVerificado)
 
   const [form, setForm] = useState({
     nombre: '',
@@ -74,11 +76,38 @@ const SignUp = () => {
         rol: form.rol,
       }
 
-      await axios.post(`${API_URL}/api/user/register/`, payload)
+      const registerResp = await axios.post(`${API_URL}/api/user/register/`, payload)
+      
+      // Auto-login después del registro
+      const loginResp = await axios.post(`${API_URL}/api/user/login/`, {
+        email: form.email,
+        password: form.password,
+      })
+      
+      const tokenData = loginResp.data
+      const usuario = registerResp.data
+      
+      login({
+        id: usuario.id,
+        nombre: usuario.nombre,
+        email: usuario.email,
+        rol: usuario.rol,
+        token: tokenData.access,
+        telefono: usuario.telefono,
+        foto_perfil: usuario.foto_perfil,
+        foto_perfil_url: usuario.foto_perfil_url,
+        verificacion_email: false,
+        verificacion_telefono: false,
+        verificacion_identidad: false,
+      })
+
+      setVerificado({ email: false, telefono: false, cedula: false })
+
       showPopup('Cuenta creada correctamente', 'check-circle')
-      setTimeout(() => {
-        router.replace('/')
-      }, 1000)
+
+      if (usuario.rol === 'comercio') router.replace('/(comercio)');
+      else if (usuario.rol === 'conductor') router.replace('/(delivery)');
+      else router.replace('/(tabs)');
     } catch (error: any) {
       showPopup('Ocurrió un error al registrarte', 'cancel')
     } finally {

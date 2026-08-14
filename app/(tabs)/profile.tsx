@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, Image, ScrollView, Switch } from "react-native";
+import { View, Text, TouchableOpacity, Image, ScrollView, Switch, Alert, Linking, ActivityIndicator, Modal } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
@@ -7,21 +8,28 @@ import { useCallback, useState } from "react";
 import axios from "axios";
 import { API_URL } from "@/constants";
 import { Orden } from "@/type";
+import { colorEstado } from "@/utils/ordenes";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import ScreenWrapper from "@/components/ui/ScreenWrapper";
 import Header from "@/components/ui/Header";
 import Card from "@/components/ui/Card";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import PopupMessage from "@/components/PopupMessage";
 
 
 const Profile = () => {
   const { user, logout } = useAuthStore();
   const { darkMode, toggleDarkMode } = useThemeStore();
   const [recentOrders, setRecentOrders] = useState<Orden[]>([]);
+  const [loading, setLoading] = useState(true);
+  const insets = useSafeAreaInsets();
+
+  const [popup, setPopup] = useState({ visible: false, message: "", icon: "cancel" as const });
+  const showError = (msg: string) => setPopup({ visible: true, message: msg, icon: "cancel" });
 
   const menuItems = [
-    { label: "Direcciones", icon: "map-marker-alt", action: () => router.push("/perfil/direccion") },
+    { label: "Direcciones", icon: "map-marker-alt", action: () => router.push("/direcciones/direccion") },
     { label: "Historial de pedidos", icon: "clock", action: () => router.push("/perfil/historial") },
   ];
 
@@ -37,9 +45,11 @@ const Profile = () => {
         (a: Orden, b: Orden) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime()
       );
 
-      setRecentOrders(sorted.slice(0, 3));
-    } catch (err) {
-      console.log("Error obteniendo órdenes:", err);
+       setRecentOrders(sorted.slice(0, 3));
+    } catch {
+      showError("Error al cargar órdenes recientes");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,7 +63,7 @@ const Profile = () => {
     <ScreenWrapper>
       <Header className="mb-3" title="Perfil" showBack />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 8 + insets.bottom }}>
         <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="px-4 overflow-visible">
           <Card style={{ elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6 }}>
             <View className="flex-row items-center justify-between">
@@ -83,47 +93,54 @@ const Profile = () => {
           </Card>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(200).duration(400).springify()} className="px-4 mt-4">
-          <TouchableOpacity activeOpacity={0.8} className="flex-row items-center justify-center gap-2 rounded-2xl py-4 bg-primary">
+        {/* <Animated.View entering={FadeInDown.delay(200).duration(400).springify()} className="px-4 mt-4">
+          <TouchableOpacity activeOpacity={0.8} onPress={() => router.push("/search")} className="flex-row items-center justify-center gap-2 rounded-2xl py-4 bg-primary">
             <AntDesign name="heart" size={24} color="white" />
             <Text className="font-extrabold text-lg text-white">Platos Favoritos</Text>
             <Ionicons name="chevron-forward" size={22} color="white" />
-          </TouchableOpacity>
+          </TouchableOpacity> 
         </Animated.View>
+        */}
 
         <Animated.View entering={FadeInDown.delay(300).duration(400).springify()} className="px-4 mt-6 overflow-visible">
           <Text className={`text-lg font-extrabold mb-3 text-primary`}>Últimas Órdenes</Text>
           {recentOrders.length > 0 ? (
             recentOrders.map((order, index) => (
-              <TouchableOpacity
-                key={order.id}
-                onPress={() => router.push('/(tabs)/perfil/orden-detalle')}
-                className="mb-2"
-              >
-                <Card style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
-                  <View className="flex-row justify-between items-center">
-                    <View className="flex-1">
-                      <Text className={`font-bold ${darkMode ? "text-white" : "text-black"}`}>Pedido #{order.numero_orden}</Text>
-                      <Text className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}> {order.creado_en
-                        ? format(new Date(order.creado_en), "dd/MM/yyyy HH:mm", { locale: es })
-                        : "Sin fecha"}</Text>
+              <Animated.View key={order.id} entering={FadeInDown.delay(100 + index * 80).duration(400).springify()} className="mb-3">
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: "/(tabs)/perfil/orden-detalle", params: { id: order.id } })}
+                  activeOpacity={0.8}
+                >
+                  <Card style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }} >
+                    <View className="flex-row justify-between">
+                      <View className="flex-1">
+                        <Text className={`font-bold ${darkMode ? "text-white" : "text-black"}`}>Pedido #{order.numero_orden}</Text>
+                        <View className="mt-1">
+                          <Text className={`${darkMode ? "text-gray-400" : "text-gray-500"} text-sm`}>{order.restaurante_nombre}</Text>
+                          <Text className={`${darkMode ? "text-gray-400" : "text-gray-500"} text-xs`}>
+                            {order.creado_en ? format(new Date(order.creado_en), "dd/MM/yyyy HH:mm", { locale: es }) : "Sin fecha"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View className="items-end justify-center">
+                        <View className="flex-row items-center">
+                          <View className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: colorEstado(order.estado_nombre, darkMode) }} />
+                          <Text className="text-xs font-semibold" style={{ color: colorEstado(order.estado_nombre, darkMode) }}>
+                            {order.estado_nombre}
+                          </Text>
+                        </View>
+                        <Text className="font-semibold text-lg mt-2" style={{ color: darkMode ? '#EAB308' : '#B8860B' }}>
+                          ${order.total}
+                        </Text>
+                      </View>
                     </View>
-                    <View className="items-end">
-                      <Text className="font-bold text-lg text-primary">${order.total}</Text>
-                      <Text className={`text-xs font-semibold ${
-                        order.estado_nombre === "Entregada"
-                          ? "text-green-600"
-                          : order.estado_nombre === "En camino"
-                          ? "text-yellow-600"
-                          : "text-red-600"
-                      }`}>{order.estado_nombre}</Text>
-                    </View>
-                  </View>
-                </Card>
-              </TouchableOpacity>
+                  </Card>
+                </TouchableOpacity>
+              </Animated.View>
             ))
           ) : (
-            <Card className="items-center py-6" style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+            <Card className="items-center py-6" style={{ elevation: 4 }}>
               <Ionicons name="file-tray-outline" size={40} color={darkMode ? '#9CA3AF' : '#9CA3AF'} />
               <Text className={`mb-3 text-base mt-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Aún no tienes ninguna orden</Text>
               <TouchableOpacity
@@ -154,7 +171,7 @@ const Profile = () => {
           </View>
 
         <Animated.View entering={FadeInDown.delay(500).duration(400).springify()} className="px-4 mt-6 overflow-visible">
-          <Card style={{ elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+          <Card style={{ elevation: 4 }}>
             <View className="flex-row justify-between items-center py-1">
               <Text className="text-gray-400">Versión</Text>
               <Text className={`font-semibold ${darkMode ? "text-white" : "text-black"}`}>1.0.0</Text>
@@ -171,18 +188,24 @@ const Profile = () => {
             </View>
             <View className="h-px bg-gray-200 my-3" />
             <View className="flex-row justify-between items-center py-1">
-              <Text className="text-gray-400">Centro de ayuda</Text>
-              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              <TouchableOpacity className="flex-row justify-between items-center py-1 flex-1" onPress={() => Linking.openURL("mailto:soporte@enruta.com")}>
+                <Text className="text-gray-400">Centro de ayuda</Text>
+                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
             </View>
             <View className="h-px bg-gray-200 my-3" />
             <View className="flex-row justify-between items-center py-1">
-              <Text className="text-gray-400">Términos y condiciones</Text>
-              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              <TouchableOpacity className="flex-row justify-between items-center py-1 flex-1" onPress={() => Alert.alert("Términos y condiciones", "Próximamente disponible")}>
+                <Text className="text-gray-400">Términos y condiciones</Text>
+                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
             </View>
             <View className="h-px bg-gray-200 my-3" />
             <View className="flex-row justify-between items-center py-1">
-              <Text className="text-gray-400">Política de privacidad</Text>
-              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              <TouchableOpacity className="flex-row justify-between items-center py-1 flex-1" onPress={() => Alert.alert("Política de privacidad", "Próximamente disponible")}>
+                <Text className="text-gray-400">Política de privacidad</Text>
+                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
             </View>
           </Card>
         </Animated.View>
@@ -199,6 +222,28 @@ const Profile = () => {
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
+      <PopupMessage
+        visible={popup.visible}
+        message={popup.message}
+        icon={popup.icon}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
+
+      <Modal
+        visible={loading}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <View className={`rounded-3xl p-8 w-5/6 items-center ${darkMode ? "bg-gray-800" : "bg-white"}`}>
+            <ActivityIndicator size="large" color="#2563EB" />
+            <Text className={`font-bold text-lg mt-4 text-center ${darkMode ? "text-white" : "text-black"}`}>
+              Cargando perfil...
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 };

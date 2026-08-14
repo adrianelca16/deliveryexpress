@@ -60,7 +60,7 @@ export default function FotoPerfil() {
       setIsLoading(true);
 
       const res = await axios.patch(
-        `${API_URL}/api/user/usuario/${user?.$id}/`,
+        `${API_URL}/api/user/usuario/${user?.id}/`,
         formData,
         {
           headers: {
@@ -77,20 +77,20 @@ export default function FotoPerfil() {
       if (res.data.verificacion_identidad) {
         showPopup("Documento validado exitosamente ", "check-circle");
         setTimeout(() => {
-          router.push("/registros/confirmacion-registro");
+          router.push("/(tabs)/registros/confirmacion-registro");
         }, 2000);
       } else {
-        showPopup("No se pudo validar la selfie ❌", "cancel");
-        setTimeout(() => {
-          router.replace("/registros/foto-perfil");
-        }, 2000);
-      }
+showPopup("No se pudo validar la selfie", "cancel");
+      setTimeout(() => {
+        router.replace("/(tabs)/registros/foto-perfil");
+      }, 2000);
+    }
     } catch (error) {
-      console.error("❌ Error al subir la foto:", error);
+      console.error("Error al subir la foto:", error);
       setIsLoading(false);
       showPopup("Hubo un problema al enviar la foto", "cancel");
       setTimeout(() => {
-        router.replace("/registros/foto-perfil");
+        router.replace("/(tabs)/registros/foto-perfil");
       }, 2000);
     }
   };
@@ -100,7 +100,7 @@ export default function FotoPerfil() {
   }
 
   return (
-    <ScreenWrapper gradient>
+    <ScreenWrapper>
       <Header title="Selfie" showBack />
 
       <Animated.View entering={FadeInDown.delay(100).duration(400).springify()} className="items-center px-4">
@@ -136,7 +136,9 @@ export default function FotoPerfil() {
 
       <Animated.View entering={FadeInDown.delay(300).duration(400).springify()} className="px-4 mt-6 gap-3">
         <TouchableOpacity onPress={tomarFoto} activeOpacity={0.8}>
-          <Card className="items-center py-6">
+          <Card className="items-center py-6"
+            style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 5 }}
+          >
             <View className="w-16 h-16 rounded-2xl bg-primary/10 items-center justify-center mb-3">
               <FontAwesome6 name="camera" size={32} color="#2563EB" />
             </View>

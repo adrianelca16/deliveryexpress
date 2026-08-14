@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, StyleSheet, Dimensions } from "react-native";
-import MapView, { Marker, MapPressEvent, Region } from "react-native-maps";
+import { MapView, Marker } from "@/components/maps";
+import type { MapPressEvent, Region } from "@/components/maps";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useThemeStore } from '@/store/theme.store';
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import { setPendingLocation } from "./pending-location";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface SearchResult {
   display_name: string;
@@ -27,27 +30,45 @@ export default function SeleccionarDireccion() {
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        const loc = await Location.getCurrentPositionAsync({});
-        const newRegion = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        };
-        setRegion(newRegion);
-        setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-        mapRef.current?.animateToRegion(newRegion);
-      }
-    })();
+    irAUbicacionActual();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const [locating, setLocating] = useState(false);
 
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [searching, setSearching] = useState(false);
+
+  const irAUbicacionActual = async () => {
+    try {
+      setLocating(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        alert("Permiso de ubicación denegado");
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({});
+      const newRegion = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      };
+      setRegion(newRegion);
+      setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      mapRef.current?.animateToRegion?.(newRegion, 500);
+    } catch {
+      alert("No se pudo obtener tu ubicación");
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const marcarEnCentro = () => {
+    setLocation({ latitude: region.latitude, longitude: region.longitude });
+  };
 
   const buscarLugar = async (text: string) => {
     setSearch(text);
@@ -85,18 +106,24 @@ export default function SeleccionarDireccion() {
   };
 
   const handleConfirm = () => {
-    if (location) {
-      router.push({
-        pathname: "/perfil/formulario-direccion",
-        params: { latitud: location.latitude, longitud: location.longitude },
-      });
-    } else {
+    if (!location) {
       alert("Por favor selecciona un punto en el mapa");
+      return;
     }
+    setPendingAction("confirm");
   };
 
   const handleCancel = () => {
-    router.push('/(tabs)/perfil/formulario-direccion');
+    setPendingAction("cancel");
+  };
+
+  const [pendingAction, setPendingAction] = useState<"confirm" | "cancel" | null>(null);
+
+  const ejecutarAccion = () => {
+    if (pendingAction === "confirm" && location) {
+      setPendingLocation(location.latitude, location.longitude);
+    }
+    router.back();
   };
 
   return (
@@ -106,11 +133,14 @@ export default function SeleccionarDireccion() {
         style={styles.map}
         region={region}
         onPress={handlePress}
+        onRegionChangeComplete={setRegion}
       >
         {location && (
-          <Marker 
-            coordinate={location} 
+          <Marker
+            coordinate={location}
             pinColor="#B8860B"
+            draggable
+            onDragEnd={(e) => setLocation(e.nativeEvent.coordinate)}
           />
         )}
       </MapView>
@@ -131,6 +161,29 @@ export default function SeleccionarDireccion() {
           </View>
         </View>
 
+        <View style={styles.controls}>
+          <TouchableOpacity
+            style={[styles.controlBtn, { backgroundColor: darkMode ? '#1F2937' : '#FFFFFF' }]}
+            onPress={marcarEnCentro}
+          >
+            <Ionicons name="pin" size={22} color="#B8860B" />
+            <Text style={[styles.controlLabel, { color: darkMode ? '#D1D5DB' : '#374151' }]}>Marcar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.controlBtn, { backgroundColor: darkMode ? '#1F2937' : '#FFFFFF' }]}
+            onPress={irAUbicacionActual}
+            disabled={locating}
+          >
+            {locating ? (
+              <ActivityIndicator size="small" color="#2563EB" />
+            ) : (
+              <Ionicons name="locate" size={22} color="#2563EB" />
+            )}
+            <Text style={[styles.controlLabel, { color: darkMode ? '#D1D5DB' : '#374151' }]}>Mi ubicación</Text>
+          </TouchableOpacity>
+        </View>
+
         {showResults && results.length > 0 && (
           <View style={[styles.resultsContainer, { backgroundColor: darkMode ? '#1F2937' : 'white' }]}>
             <FlatList
@@ -147,6 +200,10 @@ export default function SeleccionarDireccion() {
             />
           </View>
         )}
+
+        <Text style={[styles.hint, { color: darkMode ? '#D1D5DB' : '#374151' }]}>
+          Toca el mapa o arrastra el pin para ajustar
+        </Text>
 
         <View style={styles.footer}>
           <TouchableOpacity
@@ -166,6 +223,21 @@ export default function SeleccionarDireccion() {
           </TouchableOpacity>
         </View>
       </View>
+
+      <ConfirmDialog
+        visible={pendingAction !== null}
+        title={pendingAction === "confirm" ? "Confirmar ubicación" : "Cancelar selección"}
+        message={
+          pendingAction === "confirm"
+            ? "¿Deseas guardar este punto como la ubicación de tu dirección?"
+            : "¿Deseas cancelar la selección? Los cambios no se guardarán."
+        }
+        icon={pendingAction === "confirm" ? "place" : "warning"}
+        confirmText={pendingAction === "confirm" ? "Confirmar" : "Sí, cancelar"}
+        danger={pendingAction === "cancel"}
+        onConfirm={ejecutarAccion}
+        onCancel={() => setPendingAction(null)}
+      />
     </View>
   );
 }
@@ -214,6 +286,34 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   resultText: { flex: 1, fontSize: 14 },
+  controls: {
+    position: "absolute",
+    right: 12,
+    top: 130,
+    gap: 10,
+  },
+  controlBtn: {
+    width: 64,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 14,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  controlLabel: { fontSize: 11, fontWeight: "700", marginTop: 4 },
+  hint: {
+    position: "absolute",
+    bottom: 96,
+    left: 20,
+    right: 20,
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   footer: {
     position: "absolute",
     bottom: 40,

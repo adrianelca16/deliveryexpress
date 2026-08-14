@@ -1,10 +1,19 @@
 import { SplashScreen, Stack } from "expo-router";
+import { Platform } from "react-native";
 import './global.css';
+if (Platform.OS === 'web') { require('leaflet/dist/leaflet.css'); }
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { View, StatusBar } from "react-native";
+import { View, StatusBar, LogBox } from "react-native";
 import { useThemeStore } from "@/store/theme.store";
 import { setBackgroundColorAsync } from 'expo-system-ui';
+
+LogBox.ignoreLogs([
+  'AxiosError',
+  'Request failed with status code',
+  'Network Error',
+  'Failed to fetch',
+]);
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,7 +53,7 @@ export default function RootLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: darkMode ? '#111827' : '#FFFFFF' }}>
-      <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} translucent={true} />
+      <StatusBar barStyle={darkMode ? "light-content" : "dark-content"} backgroundColor={darkMode ? "#111827" : "#FFFFFF"} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
     </View>
   );
